@@ -11,23 +11,26 @@ import os
 
 
 class ChestXrayDataSet(Dataset):
-    def __init__(self, data_dir, image_list_file, transform=None):
+    def __init__(self, image_list_file, transform=None):
         """
         Args:
-            data_dir: path to image directory.
             image_list_file: path to the file containing images
                 with corresponding labels.
             transform: optional transform to be applied on a sample.
         """
         image_names = []
         labels = []
+
+        def __one_hot_encode(l):
+            v = [0] * 4
+            v[l] = 1
+            return v
+            
         with open(image_list_file, "r") as f:
             for line in f:
                 items = line.split()
-                image_name= items[0]
-                label = items[1:]
-                label = [int(i) for i in label]
-                image_name = os.path.join(data_dir, image_name)
+                image_name = items[0]
+                label = __one_hot_encode(int(items[1]))
                 image_names.append(image_name)
                 labels.append(label)
 
