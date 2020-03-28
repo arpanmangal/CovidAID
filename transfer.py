@@ -49,9 +49,9 @@ for k, w in template.items():
     chex_key = 'module.' + k
 
     if k.split('.')[1] == 'classifier':
-        # print (k, chex_key, template[k].size(), chexnet_model[chex_key].size())
-        # 6th class is pneumonia in CheXNet => Copy it's weights
-        template[k][1, ...] = chexnet_model[chex_key][6, ...]
+        # 6th class is pneumonia in CheXNet => Copy it's weights to pneumonia classes
+        for c in [1, 2, 3]:
+            template[k][c, ...] = chexnet_model[chex_key][6, ...]
     else:
         # print (type(template[k]), template[k].size())
         # print (type(chexnet_model[chex_key]), chexnet_model[chex_key].size())
