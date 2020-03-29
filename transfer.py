@@ -7,11 +7,11 @@ import torch
 
 
 chexnet_model_checkpoint = "model.pth.tar"
-covxnet_model_checkpoint = "covxnet_blank.pth.tar"
+# covxnet_model_checkpoint = "covxnet_blank.pth.tar"
 covxnet_model_trained_checkpoint = "covxnet_transfered.pth.tar"
 
 model = CovXNet()
-torch.save(model.state_dict(), covxnet_model_checkpoint)
+# torch.save(model.state_dict(), covxnet_model_checkpoint)
 
 def load_weights(checkpoint_pth, state_dict=True):
     if torch.cuda.is_available():
@@ -28,7 +28,8 @@ def get_top_keys(model, depth=0):
     return set({w.split('.')[depth] for w in model.keys()})
 
 chexnet_model = load_weights(chexnet_model_checkpoint)
-template = load_weights(covxnet_model_checkpoint, state_dict=False)
+template = model.state_dict()
+# template = load_weights(covxnet_model_checkpoint, state_dict=False)
 
 assert get_top_keys(chexnet_model, depth=2) == set({'features', 'classifier'})
 assert get_top_keys(template, depth=1) == set({'features', 'classifier'})
@@ -50,8 +51,9 @@ for k, w in template.items():
 
     if k.split('.')[1] == 'classifier':
         # 6th class is pneumonia in CheXNet => Copy it's weights to pneumonia classes
-        for c in [1, 2, 3]:
-            template[k][c, ...] = chexnet_model[chex_key][6, ...]
+        # for c in [1, 2, 3]:
+        #     template[k][c, ...] = chexnet_model[chex_key][6, ...]
+        print ('doing nothing for', k)
     else:
         # print (type(template[k]), template[k].size())
         # print (type(chexnet_model[chex_key]), chexnet_model[chex_key].size())

@@ -46,7 +46,7 @@ class Trainer:
         if checkpoint is not None:
             self.load_model(checkpoint)
 
-    def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64, logging=True, log_file=None):
+    def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64, start_epoch=0, logging=True, save_path=None):
         """
         Train the CovXNet
         """
@@ -91,7 +91,7 @@ class Trainer:
             val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE,
                                     shuffle=True, num_workers=8, pin_memory=True)
 
-        for epoch in range(NUM_EPOCHS):
+        for epoch in range(start_epoch, NUM_EPOCHS):
             optimizer = optim.SGD(self.net.parameters(), lr=LR, momentum=0.9)
 
             # switch to train mode
@@ -156,11 +156,13 @@ class Trainer:
             if logging:
                 print (log)
 
+            log_file = os.path.join(save_path, 'train.log')
             if log_file is not None:
                 with open(log_file, 'a') as f:
                     f.write("{}\n".format(log))
 
-            self.save_model('models/epoch_%d.pth' % (epoch + 1))
+            model_path = os.path.join(save_path, 'epoch_%d.pth'%(epoch+1))
+            self.save_model(model_path)
             
         print ('Finished Training')
 
@@ -259,7 +261,10 @@ class Trainer:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int) # For distributed processing
-    parser.add_argument("--mode", choices=['train', 'test'])
+    parser.add_argument("--mode", choices=['train', 'test'], required=True)
+    parser.add_argument("--checkpoint", type=str, required=True)
+    parser.add_argument("--save", type=str)
+    parser.add_argument("--start", type=int, default=0)
     # parser.add_argment("--torch_version", "--tv", choices=["0.3", "new"], default="0.3")
     args = parser.parse_args()
 
@@ -271,11 +276,13 @@ if __name__ == '__main__':
     if args.local_rank is not None:
         torch.distributed.init_process_group(backend='nccl')
 
-    trainer = Trainer(local_rank=args.local_rank, checkpoint='covxnet_transfered.pth.tar')
+    trainer = Trainer(local_rank=args.local_rank, checkpoint=args.checkpoint)
     if args.mode == 'test':
         trainer.predict(TEST_IMAGE_LIST)
     else:
-        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=10)
+        assert args.save is not None
+        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=100, LR=1e-4,
+                        start_epoch=args.start, save_path=args.save)
 
 # Run command for distributed
 # python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 OUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3 and all other arguments of our training script)
