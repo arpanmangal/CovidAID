@@ -27,9 +27,18 @@ class Trainer:
         """
         Trainer for the CovXNet
         """
-        self.device = torch.device('cuda', local_rank)
-        self.net = CovXNet().to(self.device)
-        self.net = torch.nn.parallel.DistributedDataParallel(self.net,
+        self.distributed = True if local_rank is not None else False
+        print ("Distributed training %s" % ('ON' if self.distributed else 'OFF'))
+        if self.distributed:
+            raise NotImplementedError("Currently distributed training not supported")
+            self.device = torch.cuda.device('cuda', local_rank)
+        else:
+            self.device = torch.cuda.device('cuda')
+
+        # self.net = CovXNet().to(self.device)
+        self.net = CovXNet().cuda()
+        if self.distributed:
+            self.net = torch.nn.parallel.DistributedDataParallel(self.net,
                                                             device_ids=[local_rank],
                                                             output_device=local_rank)
 
@@ -49,10 +58,14 @@ class Trainer:
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
                                         ]))
-        sampler = DistributedSampler(train_dataset)
-        train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE,
-                                shuffle=False, num_workers=8, pin_memory=True,
-                                sampler=sampler)
+        if self.distributed:
+            sampler = DistributedSampler(train_dataset)
+            train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE,
+                                    shuffle=False, num_workers=8, pin_memory=True,
+                                    sampler=sampler)
+        else:
+            train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE,
+                                    shuffle=True, num_workers=8, pin_memory=True)
 
         val_dataset = ChestXrayDataSet(image_list_file=VAL_IMAGE_LIST,
                                         transform=transforms.Compose([
@@ -63,10 +76,14 @@ class Trainer:
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
                                         ]))
-        sampler = DistributedSampler(val_dataset)
-        val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE,
-                                shuffle=False, num_workers=8, pin_memory=True,
-                                sampler=sampler)
+        if self.distributed:
+            sampler = DistributedSampler(val_dataset)
+            val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE,
+                                    shuffle=False, num_workers=8, pin_memory=True,
+                                    sampler=sampler)
+        else:
+            val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE,
+                                    shuffle=True, num_workers=8, pin_memory=True)
 
         for epoch in range(NUM_EPOCHS):
             optimizer = optim.SGD(self.net.parameters(), lr=LR, momentum=0.9)
@@ -75,19 +92,17 @@ class Trainer:
             self.net.train()
             tot_loss = 0.0
             for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(train_dataset)):
-                inputs = inputs.to(self.device)
-                target = target.to(self.device)
+                # inputs = inputs.to(self.device)
+                # target = target.to(self.device)
+                inputs = inputs.cuda()
+                target = target.cuda()
 
                 # Shape of input == [BATCH_SIZE, NUM_CROPS=19, CHANNELS=3, HEIGHT=224, WIDTH=244]
                 bs, n_crops, c, h, w = inputs.size()
+                inputs = inputs.view(-1, c, h, w)
                 inputs = torch.autograd.Variable(inputs.view(-1, c, h, w))
                 target = torch.autograd.Variable(target)
-
-                preds = self.net(inputs).view(bs, n_crops, -1).mean(1)
-                # print (type(preds))
-                # print (preds.shape)
-                # print (preds)
-                # print (target)
+                preds = self.net(inputs).view(bs, n_crops, -1).mean(dim=1)
 
                 preds[:, 3] = preds[:, 3] * 10
                 target[:, 3] = target[:, 3] * 10
@@ -104,17 +119,20 @@ class Trainer:
             tot_loss /= len(train_dataset)
 
             # Clear cache
-            # torch.cuda.empty_cache()
-
+            torch.cuda.empty_cache()
+            
             # Running on validation set
             self.net.eval()
             val_loss = 0.0
             for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(val_dataset)):
-                inputs = inputs.to(self.device)
-                target = target.to(self.device)
+                # inputs = inputs.to(self.device)
+                # target = target.to(self.device)
+                inputs = inputs.cuda()
+                target = target.cuda()
 
                 # Shape of input == [BATCH_SIZE, NUM_CROPS=19, CHANNELS=3, HEIGHT=224, WIDTH=244]
                 bs, n_crops, c, h, w = inputs.size()
+                inputs = inputs.view(-1, c, h, w)
                 inputs = torch.autograd.Variable(inputs.view(-1, c, h, w), volatile=True)
                 target = torch.autograd.Variable(target, volatile=True)
 
@@ -174,8 +192,10 @@ class Trainer:
         self.net.eval()
 
         for i, (inputs, target) in tqdm(enumerate(test_loader), total=len(test_loader)):
-            inputs = inputs.to(self.device)
-            target = target.to(self.device)
+            # inputs = inputs.to(self.device)
+            # target = target.to(self.device)
+            inputs = inputs.cuda()
+            target = target.cuda()
             gt = torch.cat((gt, target), 0)
 
             # Shape of input == [BATCH_SIZE, NUM_CROPS=19, CHANNELS=3, HEIGHT=224, WIDTH=244]
@@ -235,6 +255,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int) # For distributed processing
     parser.add_argument("--mode", choices=['train', 'test'])
+    # parser.add_argment("--torch_version", "--tv", choices=["0.3", "new"], default="0.3")
     args = parser.parse_args()
 
     TRAIN_IMAGE_LIST = './data/val.txt'
@@ -242,14 +263,15 @@ if __name__ == '__main__':
     TEST_IMAGE_LIST = './data/test.txt'
 
     # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
-    torch.distributed.init_process_group(backend='nccl')
+    if args.local_rank is not None:
+        torch.distributed.init_process_group(backend='nccl')
 
     trainer = Trainer(local_rank=args.local_rank, checkpoint='covxnet_transfered.pth.tar')
     if args.mode == 'test':
         trainer.predict(TEST_IMAGE_LIST)
     else:
-        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=3)
+        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=3, NUM_EPOCHS=3)
 
-# Run command
+# Run command for distributed
 # python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 OUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3 and all other arguments of our training script)
 # python -m torch.distributed.launch --nproc_per_node=2 trainer.py --mode train
