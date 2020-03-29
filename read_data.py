@@ -48,10 +48,16 @@ class ChestXrayDataSet(Dataset):
         self.num_normal = int(self.num_covid * 1.5)
         self.total = self.num_covid + self.num_viral + self.num_bact + self.num_normal
 
-        self.partitions = [self.num_covid,
-                            self.num_covid + self.num_normal,
-                            self.num_covid + self.num_normal + self.num_bact,
-                            self.num_covid + self.num_normal + self.num_bact + self.num_viral]
+        if self.train_time:
+            self.partitions = [self.num_covid,
+                                self.num_covid + self.num_normal,
+                                self.num_covid + self.num_normal + self.num_bact,
+                                self.num_covid + self.num_normal + self.num_bact + self.num_viral]
+        else:
+            self.partitions = [len(image_names[-1])]
+            for l in range(0, self.NUM_CLASSES - 1):
+                self.partitions.append(self.partitions[-1] + len(image_names[l]))
+
         assert len(self.partitions) == self.NUM_CLASSES
 
     def __getitem__(self, index):
@@ -69,6 +75,7 @@ class ChestXrayDataSet(Dataset):
             return v
 
         image_name = None
+        # print (index, self.partitions, len(self), sum([len(cnames) for cnames in self.image_names]))
         if index < self.partitions[0]:
             # Return a covid image
             data_idx = index
@@ -85,7 +92,7 @@ class ChestXrayDataSet(Dataset):
                         image_name = random.choice(self.image_names[class_idx])
                     else:
                         # Return the exact needed image
-                        data_idx = index - self.partition[l - 1]
+                        data_idx = index - self.partitions[l - 1]
                         image_name = self.image_names[class_idx][data_idx]
                     break
 
@@ -97,7 +104,8 @@ class ChestXrayDataSet(Dataset):
         return image, torch.FloatTensor(label)
 
     def __len__(self):
-        if self.train_time:
-            return self.total
-        else:
-            return sum([len(cnames) for cnames in self.image_names])
+        return self.partitions[-1]
+        # if self.train_time:
+        #     return self.total
+        # else:
+        #     return sum([len(cnames) for cnames in self.image_names])

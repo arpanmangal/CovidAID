@@ -95,7 +95,7 @@ class Trainer:
             optimizer = optim.SGD(self.net.parameters(), lr=LR, momentum=0.9)
 
             # switch to train mode
-            self.net.train()
+            # self.net.train()
             tot_loss = 0.0
             for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(train_dataset)/BATCH_SIZE):
                 # inputs = inputs.to(self.device)
@@ -110,13 +110,8 @@ class Trainer:
                 target = torch.autograd.Variable(target)
                 preds = self.net(inputs).view(bs, n_crops, -1).mean(dim=1)
 
-                preds[:, 3] = preds[:, 3] * 10
-                target[:, 3] = target[:, 3] * 10
-
-                loss = torch.sum(torch.abs(preds - target) ** 2)
-                
+                loss = torch.sum(torch.abs(preds - target) ** 2)                
                 tot_loss += float(loss.data)
-                # loss = loss_fn (preds, target)
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -130,7 +125,7 @@ class Trainer:
             # Running on validation set
             self.net.eval()
             val_loss = 0.0
-            for i, (inputs, target) in tqdm(enumerate(val_dataset), total=len(val_dataset)/BATCH_SIZE):
+            for i, (inputs, target) in tqdm(enumerate(val_loader), total=len(val_dataset)/BATCH_SIZE):
                 # inputs = inputs.to(self.device)
                 # target = target.to(self.device)
                 inputs = inputs.cuda()
@@ -186,14 +181,18 @@ class Trainer:
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
                                         ]))
-        sampler = DistributedSampler(test_dataset)
-        test_loader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE,
+        if self.distributed:
+            sampler = DistributedSampler(test_dataset)
+            test_loader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE,
                                 shuffle=False, num_workers=8, pin_memory=True,
                                 sampler=sampler)
+        else:
+            test_loader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE,
+                                shuffle=True, num_workers=8, pin_memory=True)
 
         # initialize the ground truth and output tensor
-        gt = torch.FloatTensor().to(self.device)
-        pred = torch.FloatTensor().to(self.device)
+        gt = torch.FloatTensor().cuda()
+        pred = torch.FloatTensor().cuda()
 
         # switch to evaluate mode
         self.net.eval()
@@ -213,8 +212,6 @@ class Trainer:
             output = self.net(inputs)
             output_mean = output.view(bs, n_crops, -1).mean(1)
             pred = torch.cat((pred, output_mean.data), 0)
-
-            break
 
         gt = gt.cpu().numpy().argmax(axis=1)
         pred = pred.cpu().numpy().argmax(axis=1)
@@ -278,7 +275,7 @@ if __name__ == '__main__':
     if args.mode == 'test':
         trainer.predict(TEST_IMAGE_LIST)
     else:
-        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=3)
+        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=10)
 
 # Run command for distributed
 # python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 OUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3 and all other arguments of our training script)
