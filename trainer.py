@@ -2,20 +2,23 @@
 Trainer for training and testing the networks
 """
 
-from covxnet import CovXNet
 import os
 import numpy as np
+import datetime
+import json
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torchvision
 import torchvision.transforms as transforms
+from torch import optim
 from torch.utils.data import DataLoader
 from read_data import ChestXrayDataSet
 from sklearn.metrics import roc_auc_score, confusion_matrix, plot_confusion_matrix
 import seaborn as sn
 import pandas as pd
 import matplotlib.pyplot as plt
+from covxnet import CovXNet
 from tqdm import tqdm
 
 class Trainer:
@@ -25,67 +28,112 @@ class Trainer:
         """
         self.net = CovXNet()
         
-        self.cuda_flag = torch.cuda.is_available()
-        if self.cuda_flag:
+        self.use_cuda = torch.cuda.is_available()
+        if self.use_cuda:
             self.net = self.net.cuda()
 
-    def train(self, X, Y, epochs=10, lr=0.001, batch_size=64, decay=5000, logging=True, log_file=None):
+    def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64, DECAY=5000, logging=True, log_file=None):
         """
-        Train the CNN
-
-        Params:
-        @X: Training data - input of the model
-        @Y: Training labels
-        @logging: True for printing the training progress after each epoch
-        @log_file: Path of log file
+        Train the CovXNet
         """
-        X = [x.reshape(1, self.imgsize, self.imgsize) for x in X]
-        
-        inputs = torch.FloatTensor(X)
-        labels = torch.LongTensor(Y)
-        
-        train_dataset = TensorDataset(inputs, labels)
-        trainloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        normalize = transforms.Normalize([0.485, 0.456, 0.406],
+                                     [0.229, 0.224, 0.225])
 
-        self.net.train()
-        criterion = nn.CrossEntropyLoss()
+        train_dataset = ChestXrayDataSet(image_list_file=TRAIN_IMAGE_LIST,
+                                        transform=transforms.Compose([
+                                            transforms.Resize(256),
+                                            transforms.TenCrop(224),
+                                            transforms.Lambda
+                                            (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
+                                            transforms.Lambda
+                                            (lambda crops: torch.stack([normalize(crop) for crop in crops]))
+                                        ]))
+        train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE,
+                                shuffle=True, num_workers=8, pin_memory=True)
 
-        for epoch in range(1, epochs+1): # loop over data multiple times
-            # Decreasing the learning rate
-            if (epoch % decay == 0):
-                lr /= 3
-                
-            optimizer = optim.SGD(self.net.parameters(), lr=lr, momentum=0.9)
-            
+        val_dataset = ChestXrayDataSet(image_list_file=VAL_IMAGE_LIST,
+                                        transform=transforms.Compose([
+                                            transforms.Resize(256),
+                                            transforms.TenCrop(224),
+                                            transforms.Lambda
+                                            (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
+                                            transforms.Lambda
+                                            (lambda crops: torch.stack([normalize(crop) for crop in crops]))
+                                        ]))
+        val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE,
+                                shuffle=True, num_workers=8, pin_memory=True)
+
+        for epoch in range(NUM_EPOCHS):
+            optimizer = optim.SGD(self.net.parameters(), lr=LR, momentum=0.9)
+
+            # switch to train mode
+            self.net.train()
             tot_loss = 0.0
-            for data in tqdm(trainloader):
-                # get the inputs
-                inputs, labels = data
-                if self.cuda_flag:
+            for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(train_dataset)):
+                if self.use_cuda:
                     inputs = inputs.cuda()
-                    labels = labels.cuda()
+                    target = target.cuda()
 
-                # zero the parameter gradients
+                # Shape of input == [BATCH_SIZE, NUM_CROPS=19, CHANNELS=3, HEIGHT=224, WIDTH=244]
+                bs, n_crops, c, h, w = inputs.size()
+                # print (inputs.size())
+                # print (target.size())
+                # break
+                inputs = torch.autograd.Variable(inputs.view(-1, c, h, w))
+                target = torch.autograd.Variable(target)
+
+                preds = self.net(inputs).view(bs, n_crops, -1).mean(1)
+                # print (type(preds))
+                # print (preds.shape)
+                # print (preds)
+                # print (target)
+
+                preds[:, 3] = preds[:, 3] * 10
+                target[:, 3] = target[:, 3] * 10
+
+                loss = torch.sum(torch.abs(preds - target) ** 2)
+                
+                tot_loss += float(loss.data)
+                # loss = loss_fn (preds, target)
+
                 optimizer.zero_grad()
-
-                # forward + backward + optimize
-                o = self.net(inputs)
-                loss = criterion(o, labels)
-
                 loss.backward()
                 optimizer.step()
+
+            tot_loss /= len(train_dataset)
+
+            if self.use_cuda:
+                # Clear cache
+                torch.cuda.empty_cache()
+
+            # Running on validation set
+            self.net.eval()
+            val_loss = 0.0
+            for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(val_dataset)):
+                if self.use_cuda:
+                    inputs = inputs.cuda()
+                    target = target.cuda()
+
+                # Shape of input == [BATCH_SIZE, NUM_CROPS=19, CHANNELS=3, HEIGHT=224, WIDTH=244]
+                bs, n_crops, c, h, w = inputs.size()
+                inputs = torch.autograd.Variable(inputs.view(-1, c, h, w), volatile=True)
+                target = torch.autograd.Variable(target, volatile=True)
+
+                preds = self.net(inputs).view(bs, n_crops, -1).mean(1)
+                loss = torch.sum(torch.abs(preds - target) ** 2)
                 
-                tot_loss += loss.item()
-                
-            tot_loss /= len(trainloader)
+                val_loss += float(loss.data)
+
+            val_loss /= len(val_dataset)
 
             # logging statistics
             timestamp = str(datetime.datetime.now()).split('.')[0]
             log = json.dumps({
                 'timestamp': timestamp,
-                'epoch': epoch,
-                'loss': float('%.7f' % tot_loss),
-                'lr': float('%.6f' % lr)
+                'epoch': epoch+1,
+                'train_loss': float('%.5f' % tot_loss),
+                'val_loss': float('%.5f' % val_loss),
+                'lr': float('%.6f' % LR)
             })
             if logging:
                 print (log)
@@ -93,6 +141,8 @@ class Trainer:
             if log_file is not None:
                 with open(log_file, 'a') as f:
                     f.write("{}\n".format(log))
+
+            self.save_model('models/epoch_%d.pth' % (epoch + 1))
             
         print ('Finished Training')
 
@@ -119,7 +169,7 @@ class Trainer:
         # initialize the ground truth and output tensor
         gt = torch.FloatTensor()
         pred = torch.FloatTensor()
-        if self.cuda_flag:
+        if self.use_cuda:
             gt = gt.cuda()
             pred = pred.cuda()
 
@@ -127,31 +177,26 @@ class Trainer:
         self.net.eval()
 
         for i, (inp, target) in tqdm(enumerate(test_loader), total=len(test_loader)):
-            target = target.cuda()
+            if self.use_cuda:
+                inp = inp.cuda()
+                target = target.cuda()
             gt = torch.cat((gt, target), 0)
+
+            # Shape of input == [BATCH_SIZE, NUM_CROPS=19, CHANNELS=3, HEIGHT=224, WIDTH=244]
             bs, n_crops, c, h, w = inp.size()
-            input_var = torch.autograd.Variable(inp.view(-1, c, h, w).cuda(), volatile=True)
+            input_var = torch.autograd.Variable(inp.view(-1, c, h, w), volatile=True)
+
+            # Pass through the network and take average prediction from all the crops
             output = self.net(input_var)
             output_mean = output.view(bs, n_crops, -1).mean(1)
             pred = torch.cat((pred, output_mean.data), 0)
 
-            # break
+            break
 
         gt = gt.cpu().numpy().argmax(axis=1)
         pred = pred.cpu().numpy().argmax(axis=1)
 
         self.plot_confusion_matrix(gt, pred)
-
-        # inputs = [x.reshape(1, self.imgsize, self.imgsize) for x in inputs]
-        # inputs = torch.FloatTensor(inputs)
-        # if self.cuda_flag:
-        #     inputs = inputs.cuda()
-
-        # self.net.eval()
-        # with torch.no_grad():
-        #     labels = self.net(inputs).cpu().numpy()
-            
-        # return np.argmax(labels, axis=1)
 
     def plot_confusion_matrix(self, y_true, y_pred):
         labels = ['Normal', 'Bacterial', 'Viral', 'COVID']
@@ -184,7 +229,7 @@ class Trainer:
     
     def load_model(self, checkpoint_path, model=None):
         if model is None: model = self.net
-        if self.cuda_flag:
+        if self.use_cuda:
             model.load_state_dict(torch.load(checkpoint_path))
         else:
             model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device('cpu')))
@@ -192,6 +237,10 @@ class Trainer:
 
 if __name__ == '__main__':
     trainer = Trainer()
+    TRAIN_IMAGE_LIST = './data/val.txt'
+    VAL_IMAGE_LIST = './data/val.txt'
     TEST_IMAGE_LIST = './data/test.txt'
     trainer.load_model('covxnet_transfered.pth.tar')
-    trainer.predict(TEST_IMAGE_LIST)
+    # trainer.predict(TEST_IMAGE_LIST)
+    trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=3)
+
