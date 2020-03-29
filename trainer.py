@@ -41,8 +41,12 @@ class Trainer:
             self.net = torch.nn.parallel.DistributedDataParallel(self.net,
                                                             device_ids=[local_rank],
                                                             output_device=local_rank)
+        
+        # load model
+        if checkpoint is not None:
+            self.load_model(checkpoint)
 
-    def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64, DECAY=5000, logging=True, log_file=None):
+    def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64, logging=True, log_file=None):
         """
         Train the CovXNet
         """
@@ -50,6 +54,7 @@ class Trainer:
                                      [0.229, 0.224, 0.225])
 
         train_dataset = ChestXrayDataSet(image_list_file=TRAIN_IMAGE_LIST,
+                                        train_time=True,
                                         transform=transforms.Compose([
                                             transforms.Resize(256),
                                             transforms.TenCrop(224),
@@ -68,6 +73,7 @@ class Trainer:
                                     shuffle=True, num_workers=8, pin_memory=True)
 
         val_dataset = ChestXrayDataSet(image_list_file=VAL_IMAGE_LIST,
+                                        train_time=False,
                                         transform=transforms.Compose([
                                             transforms.Resize(256),
                                             transforms.TenCrop(224),
@@ -91,7 +97,7 @@ class Trainer:
             # switch to train mode
             self.net.train()
             tot_loss = 0.0
-            for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(train_dataset)):
+            for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(train_dataset)/BATCH_SIZE):
                 # inputs = inputs.to(self.device)
                 # target = target.to(self.device)
                 inputs = inputs.cuda()
@@ -124,7 +130,7 @@ class Trainer:
             # Running on validation set
             self.net.eval()
             val_loss = 0.0
-            for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(val_dataset)):
+            for i, (inputs, target) in tqdm(enumerate(val_dataset), total=len(val_dataset)/BATCH_SIZE):
                 # inputs = inputs.to(self.device)
                 # target = target.to(self.device)
                 inputs = inputs.cuda()
@@ -171,6 +177,7 @@ class Trainer:
                                      [0.229, 0.224, 0.225])
 
         test_dataset = ChestXrayDataSet(image_list_file=TEST_IMAGE_LIST,
+                                        train_time=False,
                                         transform=transforms.Compose([
                                             transforms.Resize(256),
                                             transforms.TenCrop(224),
@@ -244,11 +251,12 @@ class Trainer:
         torch.save(model.state_dict(), checkpoint_path)
     
     def load_model(self, checkpoint_path, model=None):
+        print ("Loading model from %s" % checkpoint_path)
         if model is None: model = self.net
-        if self.use_cuda:
-            model.load_state_dict(torch.load(checkpoint_path))
-        else:
-            model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device('cpu')))
+        # if self.use_cuda:
+        model.load_state_dict(torch.load(checkpoint_path))
+        # else:
+        #     model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device('cpu')))
 
 
 if __name__ == '__main__':
@@ -258,7 +266,7 @@ if __name__ == '__main__':
     # parser.add_argment("--torch_version", "--tv", choices=["0.3", "new"], default="0.3")
     args = parser.parse_args()
 
-    TRAIN_IMAGE_LIST = './data/val.txt'
+    TRAIN_IMAGE_LIST = './data/train.txt'
     VAL_IMAGE_LIST = './data/val.txt'
     TEST_IMAGE_LIST = './data/test.txt'
 
@@ -270,7 +278,7 @@ if __name__ == '__main__':
     if args.mode == 'test':
         trainer.predict(TEST_IMAGE_LIST)
     else:
-        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=3, NUM_EPOCHS=3)
+        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=3)
 
 # Run command for distributed
 # python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 OUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3 and all other arguments of our training script)
