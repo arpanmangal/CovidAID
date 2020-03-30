@@ -11,7 +11,7 @@ import os
 import random
 
 class ChestXrayDataSet(Dataset):
-    def __init__(self, image_list_file, train_time=True, transform=None):
+    def __init__(self, image_list_file, train_time=True, transform=None, recall_class=None):
         """
         Create the Data Loader.
         Since class 3 (Covid) has limited data, dataset size will be accordingly at train time.
@@ -20,9 +20,15 @@ class ChestXrayDataSet(Dataset):
         Args:
             image_list_file: path to the file containing images
                 with corresponding labels.
+            train_time: True/False
             transform: optional transform to be applied on a sample.
+            recall_class: Integer representing class whose recall to increase.
         """
         self.NUM_CLASSES = 4
+        self.recall_class = recall_class
+        if recall_class is not None:
+            assert 0 <= recall_class < self.NUM_CLASSES
+            print ("Increasing the recall of class %d" % recall_class)
 
         # Set of images for each class
         image_names = [[] for _ in range(self.NUM_CLASSES)]
@@ -71,6 +77,8 @@ class ChestXrayDataSet(Dataset):
 
         def __one_hot_encode(l):
             v = [0] * self.NUM_CLASSES
+            if self.recall_class is not None and l == self.recall_class:
+                v = [-0.5] * self.NUM_CLASSES
             v[l] = 1
             return v
 

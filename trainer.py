@@ -46,7 +46,8 @@ class Trainer:
         if checkpoint is not None:
             self.load_model(checkpoint)
 
-    def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64, start_epoch=0, logging=True, save_path=None):
+    def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64,
+                start_epoch=0, logging=True, save_path=None, freeze_feature_layers=True, inc_recall=None):
         """
         Train the CovXNet
         """
@@ -62,7 +63,8 @@ class Trainer:
                                             (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
-                                        ]))
+                                        ]),
+                                        recall_class=inc_recall)
         if self.distributed:
             sampler = DistributedSampler(train_dataset)
             train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE,
@@ -81,7 +83,8 @@ class Trainer:
                                             (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
-                                        ]))
+                                        ]),
+                                        recall_class=inc_recall)
         if self.distributed:
             sampler = DistributedSampler(val_dataset)
             val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE,
@@ -91,8 +94,18 @@ class Trainer:
             val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE,
                                     shuffle=True, num_workers=8, pin_memory=True)
 
+        # Freeze heads and create optimizer
+        if freeze_feature_layers:
+            print ("Freezing feature layers")
+            for param in self.net.densenet121.features.parameters():
+                param.requires_grad = False
+
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, self.net.parameters()),
+                        lr=LR, momentum=0.9)
+
+
         for epoch in range(start_epoch, NUM_EPOCHS):
-            optimizer = optim.SGD(self.net.parameters(), lr=LR, momentum=0.9)
+            # optimizer = optim.SGD(self.net.parameters(), lr=LR, momentum=0.9)
 
             # switch to train mode
             # self.net.train()
@@ -265,6 +278,8 @@ if __name__ == '__main__':
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--save", type=str)
     parser.add_argument("--start", type=int, default=0)
+    parser.add_argument("--freeze", action='store_true', default=False)
+    parser.add_argument("--inc_recall", type=int, default=None)
     # parser.add_argment("--torch_version", "--tv", choices=["0.3", "new"], default="0.3")
     args = parser.parse_args()
 
@@ -281,8 +296,9 @@ if __name__ == '__main__':
         trainer.predict(TEST_IMAGE_LIST)
     else:
         assert args.save is not None
-        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=100, LR=1e-4,
-                        start_epoch=args.start, save_path=args.save)
+        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=300, LR=1e-4,
+                        start_epoch=args.start, save_path=args.save, freeze_feature_layers=args.freeze,
+                        inc_recall=args.inc_recall)
 
 # Run command for distributed
 # python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 OUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3 and all other arguments of our training script)
