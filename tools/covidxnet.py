@@ -27,12 +27,12 @@ class DenseNet121(nn.Module):
         return x
     
 
-class CovXNet(DenseNet121):
+class CovidXNet(DenseNet121):
     """
     Modified DenseNet network with 4 classes
     """
     def __init__(self):
-        super(CovXNet, self).__init__(4)
+        super(CovidXNet, self).__init__(4)
 
 
 class CheXNet(DenseNet121):

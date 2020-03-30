@@ -1,23 +1,17 @@
 """
-Code to transfer weights from CheXNet (torch 0.3) to CovXNet (torch >=1.2)
+Code to transfer weights from CheXNet (torch 0.3) to CovXNet
 """
 
-from covxnet import CovXNet, CheXNet
+from covidxnet import CovidXNet, CheXNet
 import torch
 
+chexnet_model_checkpoint = "./data/CheXNet_model.pth.tar"
+covidxnet_model_trained_checkpoint = "./models/CovidXNet_transfered.pth.tar"
 
-chexnet_model_checkpoint = "model.pth.tar"
-# covxnet_model_checkpoint = "covxnet_blank.pth.tar"
-covxnet_model_trained_checkpoint = "covxnet_transfered.pth.tar"
-
-model = CovXNet()
-# torch.save(model.state_dict(), covxnet_model_checkpoint)
+model = CovidXNet()
 
 def load_weights(checkpoint_pth, state_dict=True):
-    if torch.cuda.is_available():
-        model = torch.load(checkpoint_pth)
-    else:
-        model = torch.load(checkpoint_pth, map_location=torch.device('cpu'))
+    model = torch.load(checkpoint_pth)
     
     if state_dict:
         return model['state_dict']
@@ -29,7 +23,6 @@ def get_top_keys(model, depth=0):
 
 chexnet_model = load_weights(chexnet_model_checkpoint)
 template = model.state_dict()
-# template = load_weights(covxnet_model_checkpoint, state_dict=False)
 
 assert get_top_keys(chexnet_model, depth=2) == set({'features', 'classifier'})
 assert get_top_keys(template, depth=1) == set({'features', 'classifier'})
@@ -60,4 +53,4 @@ for k, w in template.items():
         assert chexnet_model[chex_key].size() == template[k].size()
         template[k] = chexnet_model[chex_key]
 
-torch.save(template, covxnet_model_trained_checkpoint)
+torch.save(template, covidxnet_model_trained_checkpoint)
