@@ -10,9 +10,9 @@ import numpy as np
 COVID_DATA_PATH='./covid-chestxray-dataset'
 METADATA_PATH = os.path.join(COVID_DATA_PATH, 'metadata.csv')
 IMAGES_PATH = os.path.join(COVID_DATA_PATH, 'images')
-TRAIN_FILE = './data/covid/train_list.txt'
-VAL_FILE = './data/covid/val_list.txt'
-TEST_FILE = './data/covid/test_list.txt'
+TRAIN_FILE = './data/covid19/train_list.txt'
+VAL_FILE = './data/covid19/val_list.txt'
+TEST_FILE = './data/covid19/test_list.txt'
 
 # Load patient stats
 covids = dict()

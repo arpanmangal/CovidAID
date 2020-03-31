@@ -1,5 +1,5 @@
 """
-The main CovXNet and CheXNet implementation
+The main CovidXNet and CheXNet implementation
 """
 
 import torch
