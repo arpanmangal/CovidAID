@@ -15,17 +15,17 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from read_data import ChestXrayDataSet
-from sklearn.metrics import roc_auc_score, confusion_matrix, plot_confusion_matrix
+from sklearn.metrics import roc_auc_score, confusion_matrix
 import seaborn as sn
 import pandas as pd
 import matplotlib.pyplot as plt
-from covxnet import CovXNet
+from covidxnet import CovidXNet
 from tqdm import tqdm
 
 class Trainer:
     def __init__ (self, local_rank, checkpoint=None):
         """
-        Trainer for the CovXNet
+        Trainer for the CovidXNet
         """
         self.distributed = True if local_rank is not None else False
         print ("Distributed training %s" % ('ON' if self.distributed else 'OFF'))
@@ -35,8 +35,8 @@ class Trainer:
         else:
             self.device = torch.cuda.device('cuda')
 
-        # self.net = CovXNet().to(self.device)
-        self.net = CovXNet().cuda()
+        # self.net = CovidXNet().to(self.device)
+        self.net = CovidXNet().cuda()
         if self.distributed:
             self.net = torch.nn.parallel.DistributedDataParallel(self.net,
                                                             device_ids=[local_rank],
@@ -49,7 +49,7 @@ class Trainer:
     def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64,
                 start_epoch=0, logging=True, save_path=None, freeze_feature_layers=True, inc_recall=None):
         """
-        Train the CovXNet
+        Train the CovidXNet
         """
         normalize = transforms.Normalize([0.485, 0.456, 0.406],
                                      [0.229, 0.224, 0.225])
@@ -179,7 +179,7 @@ class Trainer:
             
         print ('Finished Training')
 
-    def predict(self, TEST_IMAGE_LIST, BATCH_SIZE=64):
+    def predict(self, TEST_IMAGE_LIST, BATCH_SIZE=64, cm_path='cm'):
         """
         Predict the task labels corresponding to the input images
         """
@@ -227,36 +227,46 @@ class Trainer:
             output = self.net(inputs)
             output_mean = output.view(bs, n_crops, -1).mean(1)
             pred = torch.cat((pred, output_mean.data), 0)
+        gt = gt.cpu().numpy()
+        pred = pred.cpu().numpy()
 
-        gt = gt.cpu().numpy().argmax(axis=1)
-        pred = pred.cpu().numpy().argmax(axis=1)
+        # Compute ROC scores
+        labels = ['Normal', 'Bacterial', 'Viral', 'COVID-19']
+        self.compute_AUC_scores(gt, pred, labels)
 
-        self.plot_confusion_matrix(gt, pred)
+        # Treat the max. output as prediction. 
+        # Plot Confusion Matrix
+        gt = gt.argmax(axis=1)
+        pred = pred.argmax(axis=1)
+        self.plot_confusion_matrix(gt, pred, labels, cm_path)
 
-    def plot_confusion_matrix(self, y_true, y_pred):
-        labels = ['Normal', 'Bacterial', 'Viral', 'COVID']
-
+    def plot_confusion_matrix(self, y_true, y_pred, labels, cm_path):
         cm = confusion_matrix(y_true, y_pred)
         df_cm = pd.DataFrame(cm, index=labels, columns=labels).astype(int)
         plt.figure(figsize = (10,7))
         sn.heatmap(df_cm, annot=True, fmt='.0f')
-        plt.savefig('cm.png')
+        plt.savefig('%s.png' % cm_path)
         print (cm)
 
         norm_cm = confusion_matrix(y_true, y_pred, normalize='true')
         df_cm = pd.DataFrame(norm_cm, index=labels, columns=labels)
         plt.figure(figsize = (10,7))
         sn.heatmap(df_cm, annot=True, fmt='.2f')
-        plt.savefig('cm_norm.png')
+        plt.savefig('%s_norm.png' % cm_path)
         print (norm_cm)
 
-    # def score(self, X, Y):
-    #     """
-    #     Score the model -- compute accuracy
-    #     """
-    #     pred = self.predict(X)
-    #     acc = np.sum(pred == Y) / len(Y)
-    #     return float(acc)
+    def compute_AUC_scores(self, y_true, y_pred, labels):
+        """
+        Computes the Area Under the Curve (AUC) from prediction scores
+
+        y_true.shape  = [n_samples, n_classes]
+        y_preds.shape = [n_samples, n_classes]
+        labels.shape  = [n_classes]
+        """
+        AUROC_avg = roc_auc_score(y_true, y_pred)
+        print('The average AUROC is {AUROC_avg:.4f}'.format(AUROC_avg=AUROC_avg))
+        for y, pred, label in zip(y_true.transpose(), y_pred.transpose(), labels):
+            print('The AUROC of {0:} is {1:.4f}'.format(label, roc_auc_score(y, pred)))
 
     def save_model(self, checkpoint_path, model=None):
         if model is None: model = self.net
@@ -265,10 +275,7 @@ class Trainer:
     def load_model(self, checkpoint_path, model=None):
         print ("Loading model from %s" % checkpoint_path)
         if model is None: model = self.net
-        # if self.use_cuda:
         model.load_state_dict(torch.load(checkpoint_path))
-        # else:
-        #     model.load_state_dict(torch.load(checkpoint_path, map_location=torch.device('cpu')))
 
 
 if __name__ == '__main__':
@@ -280,6 +287,7 @@ if __name__ == '__main__':
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--freeze", action='store_true', default=False)
     parser.add_argument("--inc_recall", type=int, default=None)
+    parser.add_argument("--cm_path", type=str, default='plots/cm')
     # parser.add_argment("--torch_version", "--tv", choices=["0.3", "new"], default="0.3")
     args = parser.parse_args()
 
@@ -293,7 +301,7 @@ if __name__ == '__main__':
 
     trainer = Trainer(local_rank=args.local_rank, checkpoint=args.checkpoint)
     if args.mode == 'test':
-        trainer.predict(TEST_IMAGE_LIST)
+        trainer.predict(TEST_IMAGE_LIST, cm_path=args.cm_path)
     else:
         assert args.save is not None
         trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=300, LR=1e-4,

@@ -49,9 +49,9 @@ class ChestXrayDataSet(Dataset):
 
         # Number of images of each class desired
         self.num_covid = int(label_dist[3])
-        self.num_viral = int(self.num_covid * 1.5)
+        self.num_viral = int(self.num_covid * 2.0)
         self.num_bact = int(self.num_covid * 2.0)
-        self.num_normal = int(self.num_covid * 1.5)
+        self.num_normal = int(self.num_covid * 2.0)
         self.total = self.num_covid + self.num_viral + self.num_bact + self.num_normal
 
         if self.train_time:
