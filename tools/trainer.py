@@ -270,6 +270,8 @@ class Trainer:
 
         # Compute ROC scores
         labels = ['Normal', 'Bacterial', 'Viral', 'COVID-19']
+        if self.combine_pneumonia:
+            labels = ['Normal', 'Pneumonia', 'COVID-19']
         self.compute_AUC_scores(gt, pred, labels)
 
         # Treat the max. output as prediction. 
@@ -324,6 +326,7 @@ if __name__ == '__main__':
     parser.add_argument("--combine_pneumonia", action='store_true', default=False)
     parser.add_argument("--save", type=str)
     parser.add_argument("--start", type=int, default=0)
+    parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--freeze", action='store_true', default=False)
     parser.add_argument("--inc_recall", type=int, default=None)
     parser.add_argument("--cm_path", type=str, default='plots/cm')
@@ -343,7 +346,7 @@ if __name__ == '__main__':
         trainer.predict(TEST_IMAGE_LIST, cm_path=args.cm_path)
     else:
         assert args.save is not None
-        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=300, LR=1e-4,
+        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=300, LR=args.lr,
                         start_epoch=args.start, save_path=args.save, freeze_feature_layers=args.freeze,
                         inc_recall=args.inc_recall)
 
