@@ -2,13 +2,21 @@
 Code to transfer weights from CheXNet (torch 0.3) to CovXNet
 """
 
+import sys
 from covidxnet import CovidXNet, CheXNet
 import torch
+import argparse
 
-chexnet_model_checkpoint = "./data/CheXNet_model.pth.tar"
-covidxnet_model_trained_checkpoint = "./models/CovidXNet_transfered.pth.tar"
+parser = argparse.ArgumentParser()
+parser.add_argument("--combine_pneumonia", action='store_true', default=False)
+parser.add_argument("--chexnet_model_checkpoint", "--old", type=str, default="./data/CheXNet_model.pth.tar")
+parser.add_argument("--covidxnet_model_trained_checkpoint", "--new", type=str, default="./models/CovidXNet_transfered.pth.tar")
+args = parser.parse_args()
 
-model = CovidXNet()
+chexnet_model_checkpoint = args.chexnet_model_checkpoint
+covidxnet_model_trained_checkpoint = args.covidxnet_model_trained_checkpoint
+
+model = CovidXNet(combine_pneumonia=args.combine_pneumonia)
 
 def load_weights(checkpoint_pth, state_dict=True):
     model = torch.load(checkpoint_pth)
@@ -43,6 +51,7 @@ for k, w in template.items():
     chex_key = 'module.' + k
 
     if k.split('.')[1] == 'classifier':
+        # Uncomment below to copy trained weights of pneumonia
         # 6th class is pneumonia in CheXNet => Copy it's weights to pneumonia classes
         # for c in [1, 2, 3]:
         #     template[k][c, ...] = chexnet_model[chex_key][6, ...]

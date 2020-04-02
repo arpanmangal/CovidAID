@@ -82,8 +82,6 @@ Next we take the best model from previous step (according to loss), and fine tun
 python tools/trainer.py --mode train --checkpoint <PATH_TO_BEST_MOMDEL> --save <PATH_TO_SAVE_MODELS_FOLDER> --inc_recall 3
 ```
 
-We are also releasing our best model: `models/CovidXNet_best.pth`.
-
 ### Test the model
 Next we run the best model on the test set to see the results.
 ```

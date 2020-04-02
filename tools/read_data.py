@@ -11,7 +11,7 @@ import os
 import random
 
 class ChestXrayDataSet(Dataset):
-    def __init__(self, image_list_file, train_time=True, transform=None, recall_class=None):
+    def __init__(self, image_list_file, train_time=True, transform=None, recall_class=None, combine_pneumonia=False):
         """
         Create the Data Loader.
         Since class 3 (Covid) has limited data, dataset size will be accordingly at train time.
@@ -23,8 +23,9 @@ class ChestXrayDataSet(Dataset):
             train_time: True/False
             transform: optional transform to be applied on a sample.
             recall_class: Integer representing class whose recall to increase.
+            combine_pneumonia: True for combining Baterial and Viral Pneumonias into one class
         """
-        self.NUM_CLASSES = 4
+        self.NUM_CLASSES = 3 if combine_pneumonia else 4
         self.recall_class = recall_class
         if recall_class is not None:
             assert 0 <= recall_class < self.NUM_CLASSES
@@ -37,7 +38,6 @@ class ChestXrayDataSet(Dataset):
             for line in f:
                 items = line.split()
                 image_name = items[0]
-                # label = __one_hot_encode(int(items[1]))
                 label = int(items[1])
                 image_names[label].append(image_name)
 
@@ -48,19 +48,29 @@ class ChestXrayDataSet(Dataset):
         label_dist = [len(cnames) for cnames in image_names]
 
         # Number of images of each class desired
-        self.num_covid = int(label_dist[3])
-        self.num_viral = int(self.num_covid * 2.0)
-        self.num_bact = int(self.num_covid * 2.0)
+        self.num_covid = int(label_dist[-1])
         self.num_normal = int(self.num_covid * 2.0)
-        self.total = self.num_covid + self.num_viral + self.num_bact + self.num_normal
+
+        if combine_pneumonia:
+            self.num_pneumonia = int(self.num_covid * 3.0)
+            self.total = self.num_covid + self.num_pneumonia + self.num_normal
+        else:
+            self.num_viral = int(self.num_covid * 2.0)
+            self.num_bact = int(self.num_covid * 2.0)
+            self.total = self.num_covid + self.num_viral + self.num_bact + self.num_normal
 
         if self.train_time:
-            self.partitions = [self.num_covid,
-                                self.num_covid + self.num_normal,
-                                self.num_covid + self.num_normal + self.num_bact,
-                                self.num_covid + self.num_normal + self.num_bact + self.num_viral]
+            if combine_pneumonia:
+                self.partitions = [self.num_covid,
+                                    self.num_covid + self.num_normal,
+                                    self.num_covid + self.num_normal + self.num_pneumonia]
+            else:
+                self.partitions = [self.num_covid,
+                                    self.num_covid + self.num_normal,
+                                    self.num_covid + self.num_normal + self.num_bact,
+                                    self.num_covid + self.num_normal + self.num_bact + self.num_viral]
         else:
-            self.partitions = [len(image_names[-1])]
+            self.partitions = [len(image_names[-1])] # Set of COVID image names
             for l in range(0, self.NUM_CLASSES - 1):
                 self.partitions.append(self.partitions[-1] + len(image_names[l]))
 
@@ -77,9 +87,10 @@ class ChestXrayDataSet(Dataset):
 
         def __one_hot_encode(l):
             v = [0] * self.NUM_CLASSES
+            v[l] = 1
             if self.recall_class is not None and l == self.recall_class:
                 v = [-0.5] * self.NUM_CLASSES
-            v[l] = 1
+                v[l] = 1.5
             return v
 
         image_name = None
@@ -113,7 +124,13 @@ class ChestXrayDataSet(Dataset):
 
     def __len__(self):
         return self.partitions[-1]
-        # if self.train_time:
-        #     return self.total
-        # else:
-        #     return sum([len(cnames) for cnames in self.image_names])
+
+
+def load_single_image(img_path, transform=None):
+    """
+    Load a single image for inference
+    """
+    image = Image.open(img_path).convert('RGB')
+    if transform is not None:
+        image = transform(image)
+    return image

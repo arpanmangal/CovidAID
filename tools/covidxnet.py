@@ -31,8 +31,9 @@ class CovidXNet(DenseNet121):
     """
     Modified DenseNet network with 4 classes
     """
-    def __init__(self):
-        super(CovidXNet, self).__init__(4)
+    def __init__(self, combine_pneumonia=False):
+        NUM_CLASSES = 3 if combine_pneumonia else 4
+        super(CovidXNet, self).__init__(NUM_CLASSES)
 
 
 class CheXNet(DenseNet121):

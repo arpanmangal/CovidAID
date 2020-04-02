@@ -14,7 +14,7 @@ from torch import optim
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
-from read_data import ChestXrayDataSet
+from read_data import ChestXrayDataSet, load_single_image
 from sklearn.metrics import roc_auc_score, confusion_matrix
 import seaborn as sn
 import pandas as pd
@@ -23,7 +23,7 @@ from covidxnet import CovidXNet
 from tqdm import tqdm
 
 class Trainer:
-    def __init__ (self, local_rank, checkpoint=None):
+    def __init__ (self, local_rank=None, checkpoint=None, combine_pneumonia=False):
         """
         Trainer for the CovidXNet
         """
@@ -35,8 +35,11 @@ class Trainer:
         else:
             self.device = torch.cuda.device('cuda')
 
+        # Using 2 classes for pneumonia vs 1 class
+        self.combine_pneumonia = combine_pneumonia
+
         # self.net = CovidXNet().to(self.device)
-        self.net = CovidXNet().cuda()
+        self.net = CovidXNet(combine_pneumonia).cuda()
         if self.distributed:
             self.net = torch.nn.parallel.DistributedDataParallel(self.net,
                                                             device_ids=[local_rank],
@@ -64,7 +67,8 @@ class Trainer:
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
                                         ]),
-                                        recall_class=inc_recall)
+                                        recall_class=inc_recall,
+                                        combine_pneumonia=self.combine_pneumonia)
         if self.distributed:
             sampler = DistributedSampler(train_dataset)
             train_loader = DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE,
@@ -84,7 +88,8 @@ class Trainer:
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
                                         ]),
-                                        recall_class=inc_recall)
+                                        recall_class=inc_recall,
+                                        combine_pneumonia=self.combine_pneumonia)
         if self.distributed:
             sampler = DistributedSampler(val_dataset)
             val_loader = DataLoader(dataset=val_dataset, batch_size=BATCH_SIZE,
@@ -179,6 +184,36 @@ class Trainer:
             
         print ('Finished Training')
 
+    def single_predict(self, IMAGE_PATH):
+        """
+        Predict for a single image
+        """
+        raise NotImplementedError
+
+        normalize = transforms.Normalize([0.485, 0.456, 0.406],
+                                     [0.229, 0.224, 0.225])
+        transform=transforms.Compose([
+                transforms.Resize(256),
+                transforms.TenCrop(224),
+                transforms.Lambda
+                (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
+                transforms.Lambda
+                (lambda crops: torch.stack([normalize(crop) for crop in crops]))
+            ])
+
+        inputs = load_single_image(IMAGE_PATH, transform=transform)
+        inputs = inputs.cuda()
+
+        n_crops, c, h, w = inputs.size()
+        inputs = torch.autograd.Variable(inputs.view(-1, c, h, w), volatile=True)
+
+        # Pass through the network and take average prediction from all the crops
+        pred = self.net(inputs)
+        pred = pred.view(n_crops, -1).mean(dim=0)
+        pred = pred.cpu().data.numpy()
+
+        print (pred)
+
     def predict(self, TEST_IMAGE_LIST, BATCH_SIZE=64, cm_path='cm'):
         """
         Predict the task labels corresponding to the input images
@@ -195,7 +230,8 @@ class Trainer:
                                             (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
-                                        ]))
+                                        ]),
+                                        combine_pneumonia=self.combine_pneumonia)
         if self.distributed:
             sampler = DistributedSampler(test_dataset)
             test_loader = DataLoader(dataset=test_dataset, batch_size=BATCH_SIZE,
@@ -229,6 +265,8 @@ class Trainer:
             pred = torch.cat((pred, output_mean.data), 0)
         gt = gt.cpu().numpy()
         pred = pred.cpu().numpy()
+
+        print (pred)
 
         # Compute ROC scores
         labels = ['Normal', 'Bacterial', 'Viral', 'COVID-19']
@@ -283,6 +321,7 @@ if __name__ == '__main__':
     parser.add_argument("--local_rank", type=int) # For distributed processing
     parser.add_argument("--mode", choices=['train', 'test'], required=True)
     parser.add_argument("--checkpoint", type=str, required=True)
+    parser.add_argument("--combine_pneumonia", action='store_true', default=False)
     parser.add_argument("--save", type=str)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--freeze", action='store_true', default=False)
@@ -299,7 +338,7 @@ if __name__ == '__main__':
     if args.local_rank is not None:
         torch.distributed.init_process_group(backend='nccl')
 
-    trainer = Trainer(local_rank=args.local_rank, checkpoint=args.checkpoint)
+    trainer = Trainer(local_rank=args.local_rank, checkpoint=args.checkpoint, combine_pneumonia=args.combine_pneumonia)
     if args.mode == 'test':
         trainer.predict(TEST_IMAGE_LIST, cm_path=args.cm_path)
     else:
