@@ -52,7 +52,7 @@ class ChestXrayDataSet(Dataset):
         self.num_normal = int(self.num_covid * 2.0)
 
         if combine_pneumonia:
-            self.num_pneumonia = int(self.num_covid * 3.0)
+            self.num_pneumonia = int(self.num_covid * 2.0)
             self.total = self.num_covid + self.num_pneumonia + self.num_normal
         else:
             self.num_viral = int(self.num_covid * 2.0)
