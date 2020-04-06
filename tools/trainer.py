@@ -105,8 +105,9 @@ class Trainer:
             for param in self.net.densenet121.features.parameters():
                 param.requires_grad = False
 
-        optimizer = optim.SGD(filter(lambda p: p.requires_grad, self.net.parameters()),
-                        lr=LR, momentum=0.9)
+        # optimizer = optim.SGD(filter(lambda p: p.requires_grad, self.net.parameters()),
+        #                 lr=LR, momentum=0.9)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.net.parameters()), lr=LR)
 
 
         for epoch in range(start_epoch, NUM_EPOCHS):
@@ -128,7 +129,9 @@ class Trainer:
                 target = torch.autograd.Variable(target)
                 preds = self.net(inputs).view(bs, n_crops, -1).mean(dim=1)
 
-                loss = torch.sum(torch.abs(preds - target) ** 2)                
+                # loss = torch.sum(torch.abs(preds - target) ** 2)    
+                loss = train_dataset.loss(preds, target)  
+                # exit()          
                 tot_loss += float(loss.data)
 
                 optimizer.zero_grad()
@@ -156,7 +159,8 @@ class Trainer:
                 target = torch.autograd.Variable(target, volatile=True)
 
                 preds = self.net(inputs).view(bs, n_crops, -1).mean(1)
-                loss = torch.sum(torch.abs(preds - target) ** 2)
+                # loss = torch.sum(torch.abs(preds - target) ** 2)
+                loss = val_dataset.loss(preds, target) 
                 
                 val_loss += float(loss.data)
 

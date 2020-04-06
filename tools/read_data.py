@@ -27,7 +27,9 @@ class ChestXrayDataSet(Dataset):
         """
         self.NUM_CLASSES = 3 if combine_pneumonia else 4
         self.recall_class = recall_class
+
         if recall_class is not None:
+            raise ValueError("Depretiated Feature")
             assert 0 <= recall_class < self.NUM_CLASSES
             print ("Increasing the recall of class %d" % recall_class)
 
@@ -54,10 +56,16 @@ class ChestXrayDataSet(Dataset):
         if combine_pneumonia:
             self.num_pneumonia = int(self.num_covid * 2.0)
             self.total = self.num_covid + self.num_pneumonia + self.num_normal
+            self.loss_weight_plus = torch.FloatTensor([self.num_normal, self.num_pneumonia, self.num_covid]).unsqueeze(0).cuda() / self.total
+            self.loss_weight_neg = 1.0 - self.loss_weight_plus
         else:
             self.num_viral = int(self.num_covid * 2.0)
             self.num_bact = int(self.num_covid * 2.0)
             self.total = self.num_covid + self.num_viral + self.num_bact + self.num_normal
+            self.loss_weight_plus = torch.FloatTensor([self.num_normal, self.num_bact, self.num_viral, self.num_covid]).unsqueeze(0).cuda() / self.total
+            self.loss_weight_neg = 1.0 - self.loss_weight_plus
+
+        print (self.loss_weight_plus, self.loss_weight_neg)
 
         if self.train_time:
             if combine_pneumonia:
@@ -125,6 +133,26 @@ class ChestXrayDataSet(Dataset):
     def __len__(self):
         return self.partitions[-1]
 
+    def loss(self, output, target):
+        """
+        Binary weighted cross-entropy loss for each class
+        """
+        weight_plus = torch.autograd.Variable(self.loss_weight_plus.repeat(1, target.size(0)).view(-1, self.loss_weight_plus.size(1)).cuda())
+        weight_neg = torch.autograd.Variable(self.loss_weight_neg.repeat(1, target.size(0)).view(-1, self.loss_weight_neg.size(1)).cuda())
+
+        # print (weight_plus)
+        loss = output
+        pmask = (target >= 0.5).data
+        nmask = (target < 0.5).data
+        # print (loss)
+        # print ('pmask', pmask)
+        # print ('nmask', nmask)
+        loss[pmask] = loss[pmask].log() * weight_plus[pmask]
+        loss[nmask] = (1-loss[nmask]).log() * weight_plus[nmask]
+        # print (loss)
+        loss = -loss.sum()
+        # print (loss.data)
+        return loss
 
 def load_single_image(img_path, transform=None):
     """
