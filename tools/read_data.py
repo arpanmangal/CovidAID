@@ -51,21 +51,22 @@ class ChestXrayDataSet(Dataset):
 
         # Number of images of each class desired
         self.num_covid = int(label_dist[-1])
-        self.num_normal = int(self.num_covid * 2.0)
+        covid_factor = 5.0
+        self.num_normal = int(self.num_covid * covid_factor)
 
         if combine_pneumonia:
-            self.num_pneumonia = int(self.num_covid * 2.0)
+            self.num_pneumonia = int(self.num_covid * covid_factor)
             self.total = self.num_covid + self.num_pneumonia + self.num_normal
-            self.loss_weight_plus = torch.FloatTensor([self.num_normal, self.num_pneumonia, self.num_covid]).unsqueeze(0).cuda() / self.total
-            self.loss_weight_neg = 1.0 - self.loss_weight_plus
+            self.loss_weight_minus = torch.FloatTensor([self.num_normal, self.num_pneumonia, self.num_covid]).unsqueeze(0).cuda() / self.total
+            self.loss_weight_plus = 1.0 - self.loss_weight_minus
         else:
-            self.num_viral = int(self.num_covid * 2.0)
-            self.num_bact = int(self.num_covid * 2.0)
+            self.num_viral = int(self.num_covid * covid_factor)
+            self.num_bact = int(self.num_covid * covid_factor)
             self.total = self.num_covid + self.num_viral + self.num_bact + self.num_normal
-            self.loss_weight_plus = torch.FloatTensor([self.num_normal, self.num_bact, self.num_viral, self.num_covid]).unsqueeze(0).cuda() / self.total
-            self.loss_weight_neg = 1.0 - self.loss_weight_plus
+            self.loss_weight_minus = torch.FloatTensor([self.num_normal, self.num_bact, self.num_viral, self.num_covid]).unsqueeze(0).cuda() / self.total
+            self.loss_weight_plus = 1.0 - self.loss_weight_minus
 
-        print (self.loss_weight_plus, self.loss_weight_neg)
+        print (self.loss_weight_plus, self.loss_weight_minus)
 
         if self.train_time:
             if combine_pneumonia:
@@ -138,21 +139,17 @@ class ChestXrayDataSet(Dataset):
         Binary weighted cross-entropy loss for each class
         """
         weight_plus = torch.autograd.Variable(self.loss_weight_plus.repeat(1, target.size(0)).view(-1, self.loss_weight_plus.size(1)).cuda())
-        weight_neg = torch.autograd.Variable(self.loss_weight_neg.repeat(1, target.size(0)).view(-1, self.loss_weight_neg.size(1)).cuda())
+        weight_neg = torch.autograd.Variable(self.loss_weight_minus.repeat(1, target.size(0)).view(-1, self.loss_weight_minus.size(1)).cuda())
 
-        # print (weight_plus)
         loss = output
         pmask = (target >= 0.5).data
         nmask = (target < 0.5).data
-        # print (loss)
-        # print ('pmask', pmask)
-        # print ('nmask', nmask)
-        loss[pmask] = loss[pmask].log() * weight_plus[pmask]
-        loss[nmask] = (1-loss[nmask]).log() * weight_plus[nmask]
-        # print (loss)
+        
+        epsilon = 1e-15
+        loss[pmask] = (loss[pmask] + epsilon).log() * weight_plus[pmask]
+        loss[nmask] = (1-loss[nmask] + epsilon).log() * weight_plus[nmask]
         loss = -loss.sum()
-        # print (loss.data)
-        return loss
+        return loss / target.size(0)
 
 def load_single_image(img_path, transform=None):
     """

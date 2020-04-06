@@ -111,10 +111,8 @@ class Trainer:
 
 
         for epoch in range(start_epoch, NUM_EPOCHS):
-            # optimizer = optim.SGD(self.net.parameters(), lr=LR, momentum=0.9)
-
             # switch to train mode
-            # self.net.train()
+            self.net.train()
             tot_loss = 0.0
             for i, (inputs, target) in tqdm(enumerate(train_loader), total=len(train_dataset)/BATCH_SIZE):
                 # inputs = inputs.to(self.device)
@@ -332,6 +330,7 @@ if __name__ == '__main__':
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--freeze", action='store_true', default=False)
+    parser.add_argument("--bs", type=int, default=8)
     parser.add_argument("--inc_recall", type=int, default=None)
     parser.add_argument("--cm_path", type=str, default='plots/cm')
     # parser.add_argment("--torch_version", "--tv", choices=["0.3", "new"], default="0.3")
@@ -350,7 +349,7 @@ if __name__ == '__main__':
         trainer.predict(TEST_IMAGE_LIST, cm_path=args.cm_path)
     else:
         assert args.save is not None
-        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=8, NUM_EPOCHS=300, LR=args.lr,
+        trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=args.bs, NUM_EPOCHS=300, LR=args.lr,
                         start_epoch=args.start, save_path=args.save, freeze_feature_layers=args.freeze,
                         inc_recall=args.inc_recall)
 
