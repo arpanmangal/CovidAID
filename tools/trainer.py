@@ -164,6 +164,9 @@ class Trainer:
 
             val_loss /= len(val_dataset)
 
+            # Clear cache
+            torch.cuda.empty_cache()
+
             # logging statistics
             timestamp = str(datetime.datetime.now()).split('.')[0]
             log = json.dumps({

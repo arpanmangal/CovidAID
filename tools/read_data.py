@@ -149,7 +149,7 @@ class ChestXrayDataSet(Dataset):
         loss[pmask] = (loss[pmask] + epsilon).log() * weight_plus[pmask]
         loss[nmask] = (1-loss[nmask] + epsilon).log() * weight_plus[nmask]
         loss = -loss.sum()
-        return loss / target.size(0)
+        return loss
 
 def load_single_image(img_path, transform=None):
     """
