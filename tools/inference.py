@@ -85,7 +85,7 @@ if __name__ == '__main__':
     for i, (inputs, names) in tqdm(enumerate(test_loader), total=len(test_loader)):
         inputs = inputs.cuda()
 
-        # Shape of input == [BATCH_SIZE, NUM_CROPS=19, CHANNELS=3, HEIGHT=224, WIDTH=244]
+        # Shape of input == [BATCH_SIZE, NUM_CROPS=10, CHANNELS=3, HEIGHT=224, WIDTH=244]
         bs, n_crops, c, h, w = inputs.size()
         inputs = torch.autograd.Variable(inputs.view(-1, c, h, w), volatile=True)
 
@@ -107,12 +107,18 @@ if __name__ == '__main__':
         p = ["%.1f %%" % (i * 100) for i in p]
         scores.append([n] + p)
 
+    header=['Name', 'Normal', 'Bacterial', 'Viral', 'COVID-19']
+    alignment="c"*5
+    if args.combine_pneumonia:
+        header = ['Name', 'Normal', 'Pneumonia', 'COVID-19']
+        alignment = "c"*4
+
     string = tt.to_string(
         scores,
-        header=['Name', 'Normal', 'Bacterial', 'Viral', 'COVID-19'],
+        header=header,
         style=tt.styles.ascii_thin_double,
         padding=(0, 1),
-        alignment="c"*5
+        alignment=alignment
     )
 
     print (string)

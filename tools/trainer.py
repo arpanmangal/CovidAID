@@ -286,19 +286,19 @@ class Trainer:
         self.plot_confusion_matrix(gt, pred, labels, cm_path)
 
     def plot_confusion_matrix(self, y_true, y_pred, labels, cm_path):
+        norm_cm = confusion_matrix(y_true, y_pred, normalize='true')
+        norm_df_cm = pd.DataFrame(norm_cm, index=labels, columns=labels)
+        plt.figure(figsize = (10,7))
+        sn.heatmap(norm_df_cm, annot=True, fmt='.2f', square=True)
+        plt.savefig('%s_norm.png' % cm_path)
+        print (norm_cm)
+        
         cm = confusion_matrix(y_true, y_pred)
         df_cm = pd.DataFrame(cm, index=labels, columns=labels).astype(int)
         plt.figure(figsize = (10,7))
-        sn.heatmap(df_cm, annot=True, fmt='.0f')
+        sn.heatmap(norm_df_cm, annot=df_cm, fmt='.0f', cbar=False, square=True)
         plt.savefig('%s.png' % cm_path)
         print (cm)
-
-        norm_cm = confusion_matrix(y_true, y_pred, normalize='true')
-        df_cm = pd.DataFrame(norm_cm, index=labels, columns=labels)
-        plt.figure(figsize = (10,7))
-        sn.heatmap(df_cm, annot=True, fmt='.2f')
-        plt.savefig('%s_norm.png' % cm_path)
-        print (norm_cm)
 
         accuracy = np.sum(y_true == y_pred) / len(y_true)
         print ("Accuracy: %.5f" % accuracy)
