@@ -290,6 +290,8 @@ class Trainer:
         norm_df_cm = pd.DataFrame(norm_cm, index=labels, columns=labels)
         plt.figure(figsize = (10,7))
         sn.heatmap(norm_df_cm, annot=True, fmt='.2f', square=True)
+        plt.xlabel("Predicted")
+        plt.ylabel("Ground Truth")
         plt.savefig('%s_norm.png' % cm_path)
         print (norm_cm)
         
@@ -297,6 +299,8 @@ class Trainer:
         df_cm = pd.DataFrame(cm, index=labels, columns=labels).astype(int)
         plt.figure(figsize = (10,7))
         sn.heatmap(norm_df_cm, annot=df_cm, fmt='.0f', cbar=False, square=True)
+        plt.xlabel("Predicted")
+        plt.ylabel("Ground Truth")
         plt.savefig('%s.png' % cm_path)
         print (cm)
 
