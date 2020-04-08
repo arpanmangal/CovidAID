@@ -300,6 +300,9 @@ class Trainer:
         plt.savefig('%s_norm.png' % cm_path)
         print (norm_cm)
 
+        accuracy = np.sum(y_true == y_pred) / len(y_true)
+        print ("Accuracy: %.5f" % accuracy)
+
     def compute_AUC_scores(self, y_true, y_pred, labels):
         """
         Computes the Area Under the Curve (AUC) from prediction scores

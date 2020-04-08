@@ -51,15 +51,17 @@ class ChestXrayDataSet(Dataset):
 
         # Number of images of each class desired
         self.num_covid = int(label_dist[-1])
-        covid_factor = 5.0
-        self.num_normal = int(self.num_covid * covid_factor)
 
         if combine_pneumonia:
+            covid_factor = 7.0
+            self.num_normal = int(self.num_covid * covid_factor)
             self.num_pneumonia = int(self.num_covid * covid_factor)
             self.total = self.num_covid + self.num_pneumonia + self.num_normal
             self.loss_weight_minus = torch.FloatTensor([self.num_normal, self.num_pneumonia, self.num_covid]).unsqueeze(0).cuda() / self.total
             self.loss_weight_plus = 1.0 - self.loss_weight_minus
         else:
+            covid_factor = 5.0
+            self.num_normal = int(self.num_covid * covid_factor)
             self.num_viral = int(self.num_covid * covid_factor)
             self.num_bact = int(self.num_covid * covid_factor)
             self.total = self.num_covid + self.num_viral + self.num_bact + self.num_normal
