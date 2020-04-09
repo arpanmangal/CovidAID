@@ -97,13 +97,10 @@ if __name__ == '__main__':
 
     pred = pred.cpu().numpy()
 
-    # print (pred, type(pred))
-    # print (names, type(names))
-    
-    assert len(pred) == len(names)
+    assert len(pred) == len(pred_names)
 
     scores = []
-    for p, n in zip(pred, names):
+    for p, n in zip(pred, pred_names):
         p = ["%.1f %%" % (i * 100) for i in p]
         scores.append([n] + p)
 

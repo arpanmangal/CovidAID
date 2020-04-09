@@ -41,4 +41,4 @@ class CheXNet(DenseNet121):
     Modified DenseNet network with 14 classes
     """
     def __init__(self):
-        super(CovXNet, self).__init__(14)
+        super(CheXNet, self).__init__(14)
