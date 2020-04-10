@@ -18,6 +18,7 @@ from read_data import ChestXrayDataSet, load_single_image
 from sklearn.metrics import roc_auc_score, confusion_matrix
 import seaborn as sn
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 from covidxnet import CovidXNet
 from tqdm import tqdm
@@ -289,19 +290,27 @@ class Trainer:
         norm_cm = confusion_matrix(y_true, y_pred, normalize='true')
         norm_df_cm = pd.DataFrame(norm_cm, index=labels, columns=labels)
         plt.figure(figsize = (10,7))
-        sn.heatmap(norm_df_cm, annot=True, fmt='.2f', square=True)
+        sn.heatmap(norm_df_cm, annot=True, fmt='.2f', square=True, cmap=plt.cm.Blues)
         plt.xlabel("Predicted")
         plt.ylabel("Ground Truth")
-        plt.savefig('%s_norm.png' % cm_path)
-        print (norm_cm)
+        matplotlib.rcParams.update({'font.size': 14})
+        plt.savefig('%s_norm.png' % cm_path, pad_inches = 0, bbox_inches='tight')
         
         cm = confusion_matrix(y_true, y_pred)
-        df_cm = pd.DataFrame(cm, index=labels, columns=labels).astype(int)
+        # Finding the annotations
+        cm = cm.tolist()
+        norm_cm = norm_cm.tolist()
+        annot = [
+            [("%d (%.2f)" % (c, nc)) for c, nc in zip(r, nr)]
+            for r, nr in zip(cm, norm_cm)
+        ]
+        # df_cm = pd.DataFrame(cm, index=labels, columns=labels).astype(int)
         plt.figure(figsize = (10,7))
-        sn.heatmap(norm_df_cm, annot=df_cm, fmt='.0f', cbar=False, square=True)
+        sn.heatmap(norm_df_cm, annot=annot, fmt='', cbar=False, square=True, cmap=plt.cm.Blues)
         plt.xlabel("Predicted")
         plt.ylabel("Ground Truth")
-        plt.savefig('%s.png' % cm_path)
+        matplotlib.rcParams.update({'font.size': 14})
+        plt.savefig('%s.png' % cm_path, pad_inches = 0, bbox_inches='tight')
         print (cm)
 
         accuracy = np.sum(y_true == y_pred) / len(y_true)
