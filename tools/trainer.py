@@ -398,6 +398,7 @@ class Trainer:
         plt.ylabel('True Positive Rate')
         plt.title('ROC curve')
         plt.legend(loc="lower right")
+        matplotlib.rcParams.update({'font.size': 14})
         plt.savefig('%s.png' % roc_path, pad_inches = 0, bbox_inches='tight')
 
     def save_model(self, checkpoint_path, model=None):

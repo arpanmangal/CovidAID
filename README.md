@@ -25,18 +25,25 @@ Download and save the kaggle-pneumonia-dataset in the current folder.
 Chest X-Ray image distribution
 |  Type | Normal | Bacterial Pneumonia | Viral Pneumonia | COVID-19 | Total |
 |:-----:|:------:|:---------:|:--------:|:--------:|:-----:|
-| Train |  1337  |    2530 |  1338  |   97   | 5302 |
-| Val   | 12 | 8 | 7 | 10 | 37
-|  Test |   234 | 242 | 148  |  21   |   645 |
+| Train |  1341  |    2530 |  1337  |   115   | 5323 |
+| Val   | 8 | 8 | 8 | 10 | 34
+|  Test |   234 | 242 | 148  |  30   |   654 |
+
+Chest X-Ray patient distribution
+|  Type | Normal | Bacterial Pneumonia | Viral Pneumonia | COVID-19 | Total |
+|:-----:|:------:|:---------:|:--------:|:--------:|:-----:|
+| Train |  1000  |   1353 | 1083   |   80   | 3516 |
+| Val   | 8 | 7 | 7 | 7 | 29
+|  Test |   202 | 77 | 126  |  19   |   424 |
 
 ### Requirements
 The main requirements are listed below
 
-- Python 3.6+
-- PyTorch 0.3
-- Torchvision 0.1
+- Python 3.6.10
+- PyTorch 0.3.0
+- Torchvision 0.2.0
 - Numpy
-- Pillow
+- Pillow 6.1
 - Scikit-learn
 - Pandas
 - Seaborn
@@ -85,27 +92,75 @@ python tools/trainer.py --mode train --checkpoint <PATH_TO_BEST_MOMDEL> --save <
 ### Test the model
 Next we run the best model on the test set to see the results.
 ```
-python tools/trainer.py --mode test --checkpoint <PATH_TO_BEST_MODEL> --cm_path plots/cm_best
+python tools/trainer.py --mode test --checkpoint <PATH_TO_BEST_MODEL> --cm_path plots/cm_best --roc_path plots/roc_best
+```
+
+### 3-class classification
+We also provide functionality of three class classification combining the two types of common pneumonias into a single class. Specify the `--combine_pneumonia` flag (in all the scripts) to activate this functionality.
+
+## Inference
+Trained models are available in the `models` directory. 
+
+To run simple inference on a set of images, use:
+```
+python tools/inference.py --img_dir <IMG_DIR> --checkpoint <BEST_MODEL_PTH>
 ```
 
 ## Results
 
-We present the results in terms of both the per-class AUROC (Area under ROC curve) on the lines of `CheXNet`, as well as confusion matrix formed by treating the most confident class prediction as the final prediction. We obtain a mean AUROC of `0.9584`.
+We present the results in terms of both the per-class AUROC (Area under ROC curve) on the lines of `CheXNet`, as well as confusion matrix formed by treating the most confident class prediction as the final prediction. We obtain a mean AUROC of `0.9738` (4-class configuration).
 
 <center>
+<table>
+<tr><th></th><th>3-Class Classification</th><th>4-Class Classification</th></tr>
+<tr>
+<td></td>
+<td>
 
-| Pathology  |   AUROC    |
-| :--------: | :--------: |
-| Normal Lung  | 0.9584 |
-| Bacterial Pneumonia | 0.9705 |
-| Viral Pneumonia | 0.8954 |
-| COVID-19 | 0.9986 |
+| Pathology  |   AUROC    | Sensitivity | PPV
+| :--------: | :--------: | :--------: | :--------: |
+| Normal Lung  | 0.9795 | 0.744 | 0.989
+| Bacterial Pneumonia | 0.9814 | 0.995 | 0.868
+| COVID-19 | 0.9997 | 1.000 | 0.968
+
+</td><td>
+
+| Pathology  |   AUROC    | Sensitivity | PPV
+| :--------: | :--------: | :--------: | :--------: |
+| Normal Lung  | 0.9788 | 0.761 | 0.989
+| Bacterial Pneumonia | 0.9798 | 0.961 | 0.881
+| Viral Pneumonia | 0.9370 | 0.872 | 0.721
+| COVID-19 | 0.9994 | 1.000 | 0.938
+
+</td></tr> 
+<tr>
+<td>ROC curve</td>
+<td>
+
+![ROC curve](./assets/roc_3.png "ROC curve")
+
+</td><td>
+
+![ROC curve](./assets/roc_4.png "ROC curve")
+
+</td>
+</tr>
+<tr>
+<td>Confusion Matrix</td>
+<td>
+
+![Normalized Confusion Matrix](./assets/cm_3.png "Normalized Confusion Matrix")
+
+</td><td>
+
+![Confusion Matrix](./assets/cm_4.png "Confusion Matrix")
+
+</td>
+</tr>
 
 
-| Confusion Matrix             |  Normalized Confusion Matrix |
-|:-------------------------:|:-------------------------:|
-|![Confusion Matrix](./assets/cm.png "Confusion Matrix")  |  ![Normalized Confusion Matrix](./assets/cm_norm.png "Normalized Confusion Matrix")|
 
+</table>
 </center>
 
 
