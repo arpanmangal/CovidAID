@@ -1,5 +1,5 @@
 """
-The main CovidXNet and CheXNet implementation
+The main CovidAID and CheXNet implementation
 """
 
 import torch
@@ -27,13 +27,13 @@ class DenseNet121(nn.Module):
         return x
     
 
-class CovidXNet(DenseNet121):
+class CovidAID(DenseNet121):
     """
     Modified DenseNet network with 4 classes
     """
     def __init__(self, combine_pneumonia=False):
         NUM_CLASSES = 3 if combine_pneumonia else 4
-        super(CovidXNet, self).__init__(NUM_CLASSES)
+        super(CovidAID, self).__init__(NUM_CLASSES)
 
 
 class CheXNet(DenseNet121):

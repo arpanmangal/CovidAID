@@ -1,8 +1,6 @@
-# CovidXNet for Identification of COVID-19 from X-Ray Images
+# CovidAID for Detection of COVID-19 from X-Ray Images
 
- CheXNet for Classification and Localization of Thoracic Diseases
-
-We present a PyTorch (python3) based implementation, to identify COVID-19 cases from X-Ray images. The model takes as input a chest X-Ray image and outputs the probability scores for 4 classes (`NORMAL`, `Bacterial Pneumonia`, `Viral Pneumonia` and `COVID-19`).
+We present `CovidAID` (Covid AI Detector), a PyTorch (python3) based implementation, to identify COVID-19 cases from X-Ray images. The model takes as input a chest X-Ray image and outputs the probability scores for 4 classes (`NORMAL`, `Bacterial Pneumonia`, `Viral Pneumonia` and `COVID-19`).
 
 It is based on [CheXNet](https://stanfordmlgroup.github.io/projects/chexnet/) (and it's reimplementation by [arnoweng](https://github.com/arnoweng/CheXNet)).
 
@@ -11,7 +9,7 @@ It is based on [CheXNet](https://stanfordmlgroup.github.io/projects/chexnet/) (a
 Please refer to [INSTALL.md](./INSTALL.md) for installation.
 
 ## Dataset
-`CovidXNet` uses the [covid-chestxray-dataset](https://github.com/ieee8023/covid-chestxray-dataset) for COVID-19 X-Ray images and [chest-xray-pneumonia](https://www.kaggle.com/paultimothymooney/chest-xray-pneumonia) dataset for data on Pneumonia and Normal lung X-Ray images. 
+`CovidAID` uses the [covid-chestxray-dataset](https://github.com/ieee8023/covid-chestxray-dataset) for COVID-19 X-Ray images and [chest-xray-pneumonia](https://www.kaggle.com/paultimothymooney/chest-xray-pneumonia) dataset for data on Pneumonia and Normal lung X-Ray images. 
 
 ### Data Distribution
 Chest X-Ray image distribution

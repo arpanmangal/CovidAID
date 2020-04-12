@@ -1,22 +1,22 @@
 """
-Code to transfer weights from CheXNet (torch 0.3) to CovXNet
+Code to transfer weights from CheXNet (torch 0.3) to CovidAID
 """
 
 import sys
-from covidxnet import CovidXNet, CheXNet
+from covidaid import CovidAID, CheXNet
 import torch
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--combine_pneumonia", action='store_true', default=False)
 parser.add_argument("--chexnet_model_checkpoint", "--old", type=str, default="./data/CheXNet_model.pth.tar")
-parser.add_argument("--covidxnet_model_trained_checkpoint", "--new", type=str, default="./models/CovidXNet_transfered.pth.tar")
+parser.add_argument("--covidaid_model_trained_checkpoint", "--new", type=str, default="./models/CovidAID_transfered.pth.tar")
 args = parser.parse_args()
 
 chexnet_model_checkpoint = args.chexnet_model_checkpoint
-covidxnet_model_trained_checkpoint = args.covidxnet_model_trained_checkpoint
+covidaid_model_trained_checkpoint = args.covidaid_model_trained_checkpoint
 
-model = CovidXNet(combine_pneumonia=args.combine_pneumonia)
+model = CovidAID(combine_pneumonia=args.combine_pneumonia)
 
 def load_weights(checkpoint_pth, state_dict=True):
     model = torch.load(checkpoint_pth)
@@ -62,4 +62,4 @@ for k, w in template.items():
         assert chexnet_model[chex_key].size() == template[k].size()
         template[k] = chexnet_model[chex_key]
 
-torch.save(template, covidxnet_model_trained_checkpoint)
+torch.save(template, covidaid_model_trained_checkpoint)

@@ -22,13 +22,13 @@ from scipy import interp
 from itertools import cycle
 import matplotlib
 import matplotlib.pyplot as plt
-from covidxnet import CovidXNet
+from covidaid import CovidAID
 from tqdm import tqdm
 
 class Trainer:
     def __init__ (self, local_rank=None, checkpoint=None, combine_pneumonia=False):
         """
-        Trainer for the CovidXNet
+        Trainer for the CovidAID
         """
         self.distributed = True if local_rank is not None else False
         print ("Distributed training %s" % ('ON' if self.distributed else 'OFF'))
@@ -41,8 +41,8 @@ class Trainer:
         # Using 2 classes for pneumonia vs 1 class
         self.combine_pneumonia = combine_pneumonia
 
-        # self.net = CovidXNet().to(self.device)
-        self.net = CovidXNet(combine_pneumonia).cuda()
+        # self.net = CovidAID().to(self.device)
+        self.net = CovidAID(combine_pneumonia).cuda()
         if self.distributed:
             self.net = torch.nn.parallel.DistributedDataParallel(self.net,
                                                             device_ids=[local_rank],
@@ -55,7 +55,7 @@ class Trainer:
     def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64,
                 start_epoch=0, logging=True, save_path=None, freeze_feature_layers=True, inc_recall=None):
         """
-        Train the CovidXNet
+        Train the CovidAID
         """
         normalize = transforms.Normalize([0.485, 0.456, 0.406],
                                      [0.229, 0.224, 0.225])

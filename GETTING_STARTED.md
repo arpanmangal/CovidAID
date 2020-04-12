@@ -20,7 +20,7 @@
    - Class 3: COVID-19
 
 ## Prepare pretrained-model
-`CovidXNet` uses the pretrained `CheXNet` model from [here](https://github.com/arnoweng/CheXNet/). We modify the network to classify among 4 classes, while keeping the convolutional layers same. Thus we initialize with `CheXNet` pretrained model weights and fine-tune on top of it.
+`CovidAID` uses the pretrained `CheXNet` model from [here](https://github.com/arnoweng/CheXNet/). We modify the network to classify among 4 classes, while keeping the convolutional layers same. Thus we initialize with `CheXNet` pretrained model weights and fine-tune on top of it.
 
 ```
 python tools/transfer.py [--combine_pneumonia]
@@ -31,7 +31,7 @@ python tools/transfer.py [--combine_pneumonia]
 
     First we train the classifier layer, while freezing the weights of the convolutional layers to be the same as `CheXNet`.
     ```
-    python tools/trainer.py --mode train --freeze --checkpoint models/CovidXNet_transfered.pth.tar --bs 16 --save <PATH_TO_SAVE_MODELS_FOLDER> [--combine_pneumonia]
+    python tools/trainer.py --mode train --freeze --checkpoint models/CovidAID_transfered.pth.tar --bs 16 --save <PATH_TO_SAVE_MODELS_FOLDER> [--combine_pneumonia]
     ```
 
 2. Fine tune the convolutional layers

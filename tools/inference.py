@@ -10,7 +10,7 @@ from PIL import Image
 import os
 import glob
 import argparse
-from covidxnet import CovidXNet
+from covidaid import CovidAID
 from tqdm import tqdm
 import termtables as tt
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load the model
-    model = CovidXNet(args.combine_pneumonia).cuda()
+    model = CovidAID(args.combine_pneumonia).cuda()
     model.load_state_dict(torch.load(args.checkpoint))
 
     # Load the data
