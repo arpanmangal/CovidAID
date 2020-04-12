@@ -42,8 +42,8 @@ assert get_top_keys(template, depth=1) == set({'features', 'classifier'})
 c_keys = {k for k in chexnet_model.keys()}
 t_keys = {'module.' + k for k in template.keys()}
 
-print (c_keys.difference(t_keys))
-print (t_keys.difference(c_keys))
+assert len(c_keys.difference(t_keys)) == 0
+assert len(t_keys.difference(c_keys)) == 0
 
 
 # Transfer the feature weights

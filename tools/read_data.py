@@ -68,7 +68,7 @@ class ChestXrayDataSet(Dataset):
             self.loss_weight_minus = torch.FloatTensor([self.num_normal, self.num_bact, self.num_viral, self.num_covid]).unsqueeze(0).cuda() / self.total
             self.loss_weight_plus = 1.0 - self.loss_weight_minus
 
-        print (self.loss_weight_plus, self.loss_weight_minus)
+        # print (self.loss_weight_plus, self.loss_weight_minus)
 
         if self.train_time:
             if combine_pneumonia:
