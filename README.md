@@ -7,19 +7,11 @@ We present a PyTorch (python3) based implementation, to identify COVID-19 cases 
 It is based on [CheXNet](https://stanfordmlgroup.github.io/projects/chexnet/) (and it's reimplementation by [arnoweng](https://github.com/arnoweng/CheXNet)).
 
 
-## Setup and Installation
+## Installation
+Please refer to [INSTALL.md](./INSTALL.md) for installation.
 
-### Code
-
-Clone the repo
-```
-git clone --recursive https://github.com/arpanmangal/CovidXNet.git
-```
-
-### Dataset
-`CovidXNet` uses the [covid-chestxray-dataset](https://github.com/ieee8023/covid-chestxray-dataset) for COVID-19 X-Ray images and [kaggle-pneumonia-dataset](https://www.kaggle.com/paultimothymooney/chest-xray-pneumonia) for data on Pneumonia and Normal lung X-Ray images. 
-
-Download and save the kaggle-pneumonia-dataset in the current folder.
+## Dataset
+`CovidXNet` uses the [covid-chestxray-dataset](https://github.com/ieee8023/covid-chestxray-dataset) for COVID-19 X-Ray images and [chest-xray-pneumonia](https://www.kaggle.com/paultimothymooney/chest-xray-pneumonia) dataset for data on Pneumonia and Normal lung X-Ray images. 
 
 ### Data Distribution
 Chest X-Ray image distribution
@@ -36,75 +28,9 @@ Chest X-Ray patient distribution
 | Val   | 8 | 7 | 7 | 7 | 29
 |  Test |   202 | 77 | 126  |  19   |   424 |
 
-### Requirements
-The main requirements are listed below
 
-- Python 3.6.10
-- PyTorch 0.3.0
-- Torchvision 0.2.0
-- Numpy
-- Pillow 6.1
-- Scikit-learn
-- Pandas
-- Seaborn
-- Matplotlib
-- Tqdm
-
-### Prepare the dataset
-1. Prepare the COVID-19 dataset:
-   
-   We randomly select a subset of patients for `test` and `val` sets.
-   ```
-   python data_tools/prepare_covid_data.py
-   ```
-   Modify the file and rerun to update the train-val-test data split.
-
-2. Prepare the combined dataset:
-
-   ```
-   python data_tools/prepare_data.py
-   ```
-   - Class 0: Normal
-   - Class 1: Bacterial Pneumonia
-   - Class 2: Viral Pneumonia
-   - Class 3: COVID-19
-
-### Prepare the pretrained-model
-`CovidXNet` uses the pretrained `CheXNet` model from [here](https://github.com/arnoweng/CheXNet/). We modify the network to classify among 4 classes, while keeping the convolutional layers same. Thus we initialize with `CheXNet` pretrained model weights and fine-tune on top of it.
-
-```
-python tools/transfer.py
-```
-
-## Training and Evaluation
-### Train the classifier layer
-First we train the classifier layer, while freezing the weights of the convolutional layers to be the same as `CheXNet`.
-```
-python tools/trainer.py --mode train --freeze --checkpoint models/CovidXNet_transfered.pth.tar --save <PATH_TO_SAVE_MODELS_FOLDER>
-```
-
-### Fine tune the convolutional layers
-Next we take the best model from previous step (according to loss), and fine tune the full model. Since we are interested in increasing the recall of `COVID-19`, we specify the `inc_recall` option to `3` (see our paper (coming soon) for details).
-```
-python tools/trainer.py --mode train --checkpoint <PATH_TO_BEST_MOMDEL> --save <PATH_TO_SAVE_MODELS_FOLDER> --inc_recall 3
-```
-
-### Test the model
-Next we run the best model on the test set to see the results.
-```
-python tools/trainer.py --mode test --checkpoint <PATH_TO_BEST_MODEL> --cm_path plots/cm_best --roc_path plots/roc_best
-```
-
-### 3-class classification
-We also provide functionality of three class classification combining the two types of common pneumonias into a single class. Specify the `--combine_pneumonia` flag (in all the scripts) to activate this functionality.
-
-## Inference
-Trained models are available in the `models` directory. 
-
-To run simple inference on a set of images, use:
-```
-python tools/inference.py --img_dir <IMG_DIR> --checkpoint <BEST_MODEL_PTH>
-```
+## Get started
+Please refer our paper (coming soon) for description of architecture and method. Refer to [GETTING_STARTED.md](./GETTING_STARTED.md) for detailed examples and abstract usage for training the models and running inference.
 
 ## Results
 
@@ -163,6 +89,15 @@ We present the results in terms of both the per-class AUROC (Area under ROC curv
 </table>
 </center>
 
+## Contributions
+
+This work was collaboratively conducted by Arpan Mangal, Surya Kalia, Harish Rajgopal, Krithika Rangarajan, Vinay Namboodiri, Subhashis Banerjee and Chetan Arora.
+
+## Contact
+If you have any question, please file an issue or contact the author:
+```
+Arpan Mangal: mangalarpan@gmail.com
+```
 
 ## TODO
 - Add support for `torch>=1.0`
