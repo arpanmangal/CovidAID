@@ -87,6 +87,45 @@ We present the results in terms of both the per-class AUROC (Area under ROC curv
 </table>
 </center>
 
+## Visualizations
+To  demonstrate  the  results  qualitatively,  we  generate  saliency  maps  for  our model’s  predictions  using  RISE. The purpose of these visualizations was to have an additional check to rule out  model  over-fitting  as  well  as  to  validate  whether  the  regions  of  attention correspond to the right features from a radiologist’s perspective. Below are some of the saliency maps on COVID-19 positive X-rays.
+
+<center>
+
+<table>
+<tr>
+<td>
+
+![Original 1](./assets/visualizations/original_1.png "Original 1") 
+
+</td><td> 
+
+![Original 2](./assets/visualizations/original_2.png "Original 2") 
+
+</td><td> 
+
+![Original 3](./assets/visualizations/original_3.png "Original 3")
+
+</td></tr>
+
+<tr><td> 
+
+![Visualization 1](./assets/visualizations/vis_1.png "Visualization 1") 
+
+</td><td> 
+
+![Visualization 2](./assets/visualizations/vis_2.png "Visualization 2") 
+
+</td><td>
+
+![Visualization 3](./assets/visualizations/vis_3.png "Visualization 3")
+
+</td></tr>
+</table>
+
+
+</center>
+
 ## Contributions
 
 This work was collaboratively conducted by Arpan Mangal, Surya Kalia, Harish Rajgopal, Krithika Rangarajan, Vinay Namboodiri, Subhashis Banerjee and Chetan Arora.
