@@ -52,7 +52,7 @@ Trained models are available in the `models` directory.
 
 To run simple inference on a set of images, use:
 ```
-python tools/inference.py --img_dir <IMG_DIR> --checkpoint <BEST_MODEL_PTH> [--combine_pneumonia]
+python tools/inference.py --img_dir <IMG_DIR> --checkpoint <BEST_MODEL_PTH> [--combine_pneumonia] [--visualize_dir <OUT_DIR>]
 ```
 
 ## 3-class classification
