@@ -125,3 +125,4 @@ if __name__ == '__main__':
     # RISE Visualization
     if args.visualize_dir:
         visualize(model,args.img_dir,args.visualize_dir,CovidDataLoader)
+        print("Visualizations generated at "+str(args.visualize_dir))
