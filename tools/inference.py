@@ -1,7 +1,7 @@
 """
 Script to process set of images and output predictions
 """
-
+from RISE.visualize import visualize
 import torch
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
@@ -13,6 +13,7 @@ import argparse
 from covidaid import CovidAID
 from tqdm import tqdm
 import termtables as tt
+
 
 
 class CovidDataLoader(Dataset):
@@ -52,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument("--img_dir", type=str, required=True)
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--combine_pneumonia", action='store_true', default=False)
+    parser.add_argument("--visualize_dir", type=str, default=None)
     args = parser.parse_args()
 
     # Load the model
@@ -119,3 +121,7 @@ if __name__ == '__main__':
     )
 
     print (string)
+    
+    # RISE Visualization
+    if args.visualize_dir:
+        visualize(model,args.img_dir,args.visualize_dir,CovidDataLoader)
