@@ -10,8 +10,8 @@ from PIL import Image
 import os
 import random
 
-class ChestXrayDataSet(Dataset):
-    def __init__(self, image_list_file, train_time=True, transform=None, recall_class=None, combine_pneumonia=False):
+class ChestXrayDataSetTest(Dataset):
+    def __init__(self, image_list_file, transform=None, combine_pneumonia=False):
         """
         Create the Data Loader.
         Since class 3 (Covid) has limited data, dataset size will be accordingly at train time.
@@ -20,18 +20,63 @@ class ChestXrayDataSet(Dataset):
         Args:
             image_list_file: path to the file containing images
                 with corresponding labels.
-            train_time: True/False
             transform: optional transform to be applied on a sample.
-            recall_class: Integer representing class whose recall to increase.
             combine_pneumonia: True for combining Baterial and Viral Pneumonias into one class
         """
         self.NUM_CLASSES = 3 if combine_pneumonia else 4
-        self.recall_class = recall_class
 
-        if recall_class is not None:
-            raise ValueError("Depretiated Feature")
-            assert 0 <= recall_class < self.NUM_CLASSES
-            print ("Increasing the recall of class %d" % recall_class)
+        # Set of images for each class
+        image_names = []
+
+        with open(image_list_file, "r") as f:
+            for line in f:
+                items = line.split()
+                image_name = items[0]
+                label = int(items[1])
+                image_names.append((image_name, label))
+
+        self.image_names = image_names
+        self.transform = transform
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index: the index of item
+
+        Returns:
+            image and its labels
+        """
+        def __one_hot_encode(l):
+            v = [0] * self.NUM_CLASSES
+            v[l] = 1
+            return v
+
+        image_name, label = self.image_names[index]
+        label = __one_hot_encode(label)
+
+        image = Image.open(image_name).convert('RGB')
+        if self.transform is not None:
+            image = self.transform(image)
+        return image, torch.FloatTensor(label)
+
+    def __len__(self):
+        return len(self.image_names)
+
+
+class ChestXrayDataSet(Dataset):
+    def __init__(self, image_list_file, transform=None, combine_pneumonia=False):
+        """
+        Create the Data Loader.
+        Since class 3 (Covid) has limited data, dataset size will be accordingly at train time.
+        Code is written in generic form to assume last class as the rare class
+
+        Args:
+            image_list_file: path to the file containing images
+                with corresponding labels.
+            transform: optional transform to be applied on a sample.
+            combine_pneumonia: True for combining Baterial and Viral Pneumonias into one class
+        """
+        self.NUM_CLASSES = 3 if combine_pneumonia else 4
 
         # Set of images for each class
         image_names = [[] for _ in range(self.NUM_CLASSES)]
@@ -43,7 +88,6 @@ class ChestXrayDataSet(Dataset):
                 label = int(items[1])
                 image_names[label].append(image_name)
 
-        self.train_time = train_time
         self.image_names = image_names
         self.transform = transform
 
@@ -70,20 +114,15 @@ class ChestXrayDataSet(Dataset):
 
         # print (self.loss_weight_plus, self.loss_weight_minus)
 
-        if self.train_time:
-            if combine_pneumonia:
-                self.partitions = [self.num_covid,
-                                    self.num_covid + self.num_normal,
-                                    self.num_covid + self.num_normal + self.num_pneumonia]
-            else:
-                self.partitions = [self.num_covid,
-                                    self.num_covid + self.num_normal,
-                                    self.num_covid + self.num_normal + self.num_bact,
-                                    self.num_covid + self.num_normal + self.num_bact + self.num_viral]
+        if combine_pneumonia:
+            self.partitions = [self.num_covid,
+                                self.num_covid + self.num_normal,
+                                self.num_covid + self.num_normal + self.num_pneumonia]
         else:
-            self.partitions = [len(image_names[-1])] # Set of COVID image names
-            for l in range(0, self.NUM_CLASSES - 1):
-                self.partitions.append(self.partitions[-1] + len(image_names[l]))
+            self.partitions = [self.num_covid,
+                                self.num_covid + self.num_normal,
+                                self.num_covid + self.num_normal + self.num_bact,
+                                self.num_covid + self.num_normal + self.num_bact + self.num_viral]
 
         assert len(self.partitions) == self.NUM_CLASSES
 
@@ -99,9 +138,6 @@ class ChestXrayDataSet(Dataset):
         def __one_hot_encode(l):
             v = [0] * self.NUM_CLASSES
             v[l] = 1
-            if self.recall_class is not None and l == self.recall_class:
-                v = [-0.5] * self.NUM_CLASSES
-                v[l] = 1.5
             return v
 
         image_name = None
@@ -117,13 +153,8 @@ class ChestXrayDataSet(Dataset):
                 if index < self.partitions[l]:
                     class_idx = l - 1
                     label = __one_hot_encode(class_idx)
-                    if self.train_time:
-                        # Return a random image
-                        image_name = random.choice(self.image_names[class_idx])
-                    else:
-                        # Return the exact needed image
-                        data_idx = index - self.partitions[l - 1]
-                        image_name = self.image_names[class_idx][data_idx]
+                    # Return a random image
+                    image_name = random.choice(self.image_names[class_idx])
                     break
 
         assert image_name is not None
@@ -152,12 +183,3 @@ class ChestXrayDataSet(Dataset):
         loss[nmask] = (1-loss[nmask] + epsilon).log() * weight_plus[nmask]
         loss = -loss.sum()
         return loss
-
-def load_single_image(img_path, transform=None):
-    """
-    Load a single image for inference
-    """
-    image = Image.open(img_path).convert('RGB')
-    if transform is not None:
-        image = transform(image)
-    return image

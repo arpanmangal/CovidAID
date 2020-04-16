@@ -7,6 +7,7 @@ import numpy as np
 import datetime
 import json
 import argparse
+import glob
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -14,8 +15,8 @@ from torch import optim
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
-from read_data import ChestXrayDataSet, load_single_image
-from sklearn.metrics import roc_auc_score, confusion_matrix, roc_curve, auc
+from read_data import ChestXrayDataSet, ChestXrayDataSetTest
+from sklearn.metrics import roc_auc_score, confusion_matrix, roc_curve, auc, f1_score
 import seaborn as sn
 import pandas as pd
 from scipy import interp
@@ -53,7 +54,7 @@ class Trainer:
             self.load_model(checkpoint)
 
     def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64,
-                start_epoch=0, logging=True, save_path=None, freeze_feature_layers=True, inc_recall=None):
+                start_epoch=0, logging=True, save_path=None, freeze_feature_layers=True):
         """
         Train the CovidAID
         """
@@ -61,7 +62,6 @@ class Trainer:
                                      [0.229, 0.224, 0.225])
 
         train_dataset = ChestXrayDataSet(image_list_file=TRAIN_IMAGE_LIST,
-                                        train_time=True,
                                         transform=transforms.Compose([
                                             transforms.Resize(256),
                                             transforms.TenCrop(224),
@@ -70,7 +70,6 @@ class Trainer:
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
                                         ]),
-                                        recall_class=inc_recall,
                                         combine_pneumonia=self.combine_pneumonia)
         if self.distributed:
             sampler = DistributedSampler(train_dataset)
@@ -82,7 +81,6 @@ class Trainer:
                                     shuffle=True, num_workers=8, pin_memory=True)
 
         val_dataset = ChestXrayDataSet(image_list_file=VAL_IMAGE_LIST,
-                                        train_time=False,
                                         transform=transforms.Compose([
                                             transforms.Resize(256),
                                             transforms.TenCrop(224),
@@ -91,7 +89,6 @@ class Trainer:
                                             transforms.Lambda
                                             (lambda crops: torch.stack([normalize(crop) for crop in crops]))
                                         ]),
-                                        recall_class=inc_recall,
                                         combine_pneumonia=self.combine_pneumonia)
         if self.distributed:
             sampler = DistributedSampler(val_dataset)
@@ -192,45 +189,14 @@ class Trainer:
             
         print ('Finished Training')
 
-    def single_predict(self, IMAGE_PATH):
-        """
-        Predict for a single image
-        """
-        raise NotImplementedError
-
-        normalize = transforms.Normalize([0.485, 0.456, 0.406],
-                                     [0.229, 0.224, 0.225])
-        transform=transforms.Compose([
-                transforms.Resize(256),
-                transforms.TenCrop(224),
-                transforms.Lambda
-                (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
-                transforms.Lambda
-                (lambda crops: torch.stack([normalize(crop) for crop in crops]))
-            ])
-
-        inputs = load_single_image(IMAGE_PATH, transform=transform)
-        inputs = inputs.cuda()
-
-        n_crops, c, h, w = inputs.size()
-        inputs = torch.autograd.Variable(inputs.view(-1, c, h, w), volatile=True)
-
-        # Pass through the network and take average prediction from all the crops
-        pred = self.net(inputs)
-        pred = pred.view(n_crops, -1).mean(dim=0)
-        pred = pred.cpu().data.numpy()
-
-        print (pred)
-
-    def predict(self, TEST_IMAGE_LIST, BATCH_SIZE=64, cm_path='cm', roc_path='roc'):
+    def predict(self, TEST_IMAGE_LIST, BATCH_SIZE=64):
         """
         Predict the task labels corresponding to the input images
         """
         normalize = transforms.Normalize([0.485, 0.456, 0.406],
                                      [0.229, 0.224, 0.225])
 
-        test_dataset = ChestXrayDataSet(image_list_file=TEST_IMAGE_LIST,
-                                        train_time=False,
+        test_dataset = ChestXrayDataSetTest(image_list_file=TEST_IMAGE_LIST,
                                         transform=transforms.Compose([
                                             transforms.Resize(256),
                                             transforms.TenCrop(224),
@@ -274,6 +240,13 @@ class Trainer:
         gt = gt.cpu().numpy()
         pred = pred.cpu().numpy()
 
+        return gt, pred
+
+    def evaluate(self, TEST_IMAGE_LIST, BATCH_SIZE=64, cm_path='cm', roc_path='roc'):
+        """
+        Evaluate on the test set plotting confusion matrix and roc curves
+        """
+        gt, pred = self.predict(TEST_IMAGE_LIST, BATCH_SIZE=64)
         print (pred)
 
         # Compute ROC scores
@@ -290,6 +263,21 @@ class Trainer:
         gt = gt.argmax(axis=1)
         pred = pred.argmax(axis=1)
         self.plot_confusion_matrix(gt, pred, labels, cm_path)
+
+    def F1(self, TEST_DIR, out_file, BATCH_SIZE=64):
+        """
+        Evaluate on multiple test sets and compute F1 scores
+        """
+        f = open(out_file, 'w')
+        for test_file in glob.glob(os.path.join(TEST_DIR, '*.txt')):
+            print (test_file)
+            gt, pred = self.predict(test_file, BATCH_SIZE)
+            # Treat the max. output as prediction. 
+            gt = gt.argmax(axis=1)
+            pred = pred.argmax(axis=1)
+            f1 = f1_score(gt, pred, average='macro')
+            f.write('%s %.6f\n' % (test_file, f1))
+        f.close()
 
     def plot_confusion_matrix(self, y_true, y_pred, labels, cm_path):
         norm_cm = confusion_matrix(y_true, y_pred, normalize='true')
@@ -414,7 +402,7 @@ class Trainer:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int) # For distributed processing
-    parser.add_argument("--mode", choices=['train', 'test'], required=True)
+    parser.add_argument("--mode", choices=['train', 'test', 'f1'], required=True)
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--combine_pneumonia", action='store_true', default=False)
     parser.add_argument("--save", type=str)
@@ -422,7 +410,6 @@ if __name__ == '__main__':
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--freeze", action='store_true', default=False)
     parser.add_argument("--bs", type=int, default=8)
-    parser.add_argument("--inc_recall", type=int, default=None)
     parser.add_argument("--cm_path", type=str, default='plots/cm')
     parser.add_argument("--roc_path", type=str, default='plots/roc')
 
@@ -432,6 +419,7 @@ if __name__ == '__main__':
     TRAIN_IMAGE_LIST = './data/train.txt'
     VAL_IMAGE_LIST = './data/val.txt'
     TEST_IMAGE_LIST = './data/test.txt'
+    TEST_DIR = './data/samples'
 
     # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
     if args.local_rank is not None:
@@ -439,12 +427,13 @@ if __name__ == '__main__':
 
     trainer = Trainer(local_rank=args.local_rank, checkpoint=args.checkpoint, combine_pneumonia=args.combine_pneumonia)
     if args.mode == 'test':
-        trainer.predict(TEST_IMAGE_LIST, cm_path=args.cm_path, roc_path=args.roc_path)
-    else:
+        trainer.evaluate(TEST_IMAGE_LIST, cm_path=args.cm_path, roc_path=args.roc_path)
+    elif args.mode == 'train':
         assert args.save is not None
         trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=args.bs, NUM_EPOCHS=300, LR=args.lr,
-                        start_epoch=args.start, save_path=args.save, freeze_feature_layers=args.freeze,
-                        inc_recall=args.inc_recall)
+                        start_epoch=args.start, save_path=args.save, freeze_feature_layers=args.freeze)
+    else:
+        trainer.F1(TEST_DIR, 'models/samples.txt')
 
 # Run command for distributed
 # python -m torch.distributed.launch --nproc_per_node=2 --nnodes=2 --node_rank=0 --master_addr="192.168.1.1" --master_port=1234 OUR_TRAINING_SCRIPT.py (--arg1 --arg2 --arg3 and all other arguments of our training script)
