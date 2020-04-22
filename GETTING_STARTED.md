@@ -36,7 +36,7 @@ python tools/transfer.py [--combine_pneumonia]
 
 2. Fine tune the convolutional layers
 
-    Next we take the best model from previous step (according to loss), and fine tune the full model. Since we are interested in increasing the recall of `COVID-19`, we specify the `inc_recall` option to `3` (see our paper (coming soon) for details).
+    Next we take the best model from previous step (according to loss), and fine tune the full model. Since we are interested in increasing the recall of `COVID-19`, we specify the `inc_recall` option to `3` (see our paper [paper](http://arxiv.org/abs/2004.09803) for details).
     ```
     python tools/trainer.py --mode train --checkpoint <PATH_TO_BEST_MOMDEL> --bs 8 --save <PATH_TO_SAVE_MODELS_FOLDER> [--combine_pneumonia]
     ```

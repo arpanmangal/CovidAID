@@ -28,7 +28,7 @@ Chest X-Ray patient distribution
 
 
 ## Get started
-Please refer our paper (coming soon) for description of architecture and method. Refer to [GETTING_STARTED.md](./GETTING_STARTED.md) for detailed examples and abstract usage for training the models and running inference.
+Please refer our paper [paper](http://arxiv.org/abs/2004.09803) for description of architecture and method. Refer to [GETTING_STARTED.md](./GETTING_STARTED.md) for detailed examples and abstract usage for training the models and running inference.
 
 ## Results
 
