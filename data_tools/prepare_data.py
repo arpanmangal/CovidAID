@@ -11,15 +11,20 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--combine_pneumonia", action='store_true', default=False)
+parser.add_argument("--bsti", action='store_true', default=False)
 args = parser.parse_args()
 
 COVID19_DATA_PATH = "./data/covid19"
 COVID19_IMGS_PATH = "./covid-chestxray-dataset"
+BSTI_IMGS_PATH = "./BSTI-dataset"
 PNEUMONIDA_DATA_PATH = "./chest-xray-pneumonia"
 DATA_PATH = "./data"
 
 # Assert that the data directories are present
-for d in [COVID19_DATA_PATH, COVID19_IMGS_PATH, PNEUMONIDA_DATA_PATH, DATA_PATH]:
+check_list = [COVID19_DATA_PATH, COVID19_IMGS_PATH, PNEUMONIDA_DATA_PATH, DATA_PATH]
+if args.bsti:
+    check_list.append(BSTI_IMGS_PATH)
+for d in check_list:
     try:
         assert os.path.isdir(d) 
     except:
@@ -51,6 +56,17 @@ def create_list (split):
                 l.append((f, 2)) # Class 2
             else:
                 l.append((f, 3)) # Class 3
+                
+    # Prepare list using BSTI covid dataset
+    if args.bsti:
+        bsti_covid_file = os.path.join(COVID19_DATA_PATH, 'bsti_%s_list.txt'%split)
+        with open(bsti_covid_file, 'r') as cf:
+            for f in cf.readlines():
+                f = os.path.join(BSTI_IMGS_PATH, f.strip())
+                if args.combine_pneumonia:
+                    l.append((f, 2)) # Class 2
+                else:
+                    l.append((f, 3)) # Class 3
 
     with open(os.path.join(DATA_PATH, '%s.txt'%split), 'w') as f:
         for item in l:
@@ -58,4 +74,3 @@ def create_list (split):
 
 for split in ['train', 'test', 'val']:
     create_list(split)
-    
