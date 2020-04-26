@@ -5,7 +5,7 @@
 
     We randomly select a subset of patients for `test` and `val` sets.
    ```
-   python data_tools/prepare_covid_data.py 
+   python data_tools/prepare_covid_data.py
    ```
    Modify the file and rerun to update the train-val-test data split.
 
@@ -38,7 +38,7 @@ python tools/transfer.py [--combine_pneumonia]
 
     Next we take the best model from previous step (according to loss), and fine tune the full model. Since we are interested in increasing the recall of `COVID-19`, we specify the `inc_recall` option to `3` (see our paper [paper](http://arxiv.org/abs/2004.09803) for details).
     ```
-    python tools/trainer.py --mode train --checkpoint <PATH_TO_BEST_MODEL> --bs 8 --save <PATH_TO_SAVE_MODELS_FOLDER> [--combine_pneumonia]
+    python tools/trainer.py --mode train --checkpoint <PATH_TO_BEST_MOMDEL> --bs 8 --save <PATH_TO_SAVE_MODELS_FOLDER> [--combine_pneumonia]
     ```
 
 ## Evaluation
