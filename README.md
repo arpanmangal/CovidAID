@@ -145,6 +145,7 @@ This work was collaboratively conducted by Arpan Mangal, Surya Kalia, Harish Raj
 If you have any question, please file an issue or contact the author:
 ```
 Arpan Mangal: mangalarpan@gmail.com
+Surya Kalia: suryackalia@gmail.com
 ```
 
 ## TODO
