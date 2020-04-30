@@ -144,3 +144,8 @@ static
 
 # custom
 chest-xray-pneumonia
+*train*.txt
+*test*.txt
+*val*.txt
+cm*.png
+roc*.png

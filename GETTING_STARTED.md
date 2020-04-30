@@ -5,14 +5,15 @@
 
     We randomly select a subset of patients for `test` and `val` sets.
    ```
-   python data_tools/prepare_covid_data.py
+   python data_tools/prepare_covid_data.py [--bsti]
    ```
    Modify the file and rerun to update the train-val-test data split.
+   Optional: --bsti flag to include [BSTI-dataset](https://www.bsti.org.uk/training-and-education/covid-19-bsti-imaging-database/) for training. All images must extracted into one BSTI folder who's path is to be specified inside prepare_covid_data.py 
 
 2. Prepare the combined dataset:
 
    ```
-   python data_tools/prepare_data.py [--combine_pneumonia]
+   python data_tools/prepare_data.py [--combine_pneumonia] [--bsti]
    ```
    - Class 0: Normal
    - Class 1: Bacterial Pneumonia
@@ -31,14 +32,15 @@ python tools/transfer.py [--combine_pneumonia]
 
     First we train the classifier layer, while freezing the weights of the convolutional layers to be the same as `CheXNet`.
     ```
-    python tools/trainer.py --mode train --freeze --checkpoint models/CovidAID_transfered.pth.tar --bs 16 --save <PATH_TO_SAVE_MODELS_FOLDER> [--combine_pneumonia]
+    python tools/trainer.py --mode train --freeze --checkpoint models/CovidAID_transfered.pth.tar --bs 16 --save <PATH_TO_SAVE_MODELS_FOLDER> --gamma 2.0 [--combine_pneumonia]
     ```
-
+    Gamma is the parameter for focal loss. --gamma 0.0 corresponds to original weighed cross-entropy loss. 
+    
 2. Fine tune the convolutional layers
 
     Next we take the best model from previous step (according to loss), and fine tune the full model. Since we are interested in increasing the recall of `COVID-19`, we specify the `inc_recall` option to `3` (see our paper [paper](http://arxiv.org/abs/2004.09803) for details).
     ```
-    python tools/trainer.py --mode train --checkpoint <PATH_TO_BEST_MOMDEL> --bs 8 --save <PATH_TO_SAVE_MODELS_FOLDER> [--combine_pneumonia]
+    python tools/trainer.py --mode train --checkpoint <PATH_TO_BEST_MODEL> --bs 8 --save <PATH_TO_SAVE_MODELS_FOLDER> --gamma 2.0 [--combine_pneumonia]
     ```
 
 ## Evaluation

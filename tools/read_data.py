@@ -167,9 +167,9 @@ class ChestXrayDataSet(Dataset):
     def __len__(self):
         return self.partitions[-1]
 
-    def loss(self, output, target):
+    def loss(self, output, target, gamma):
         """
-        Binary weighted cross-entropy loss for each class
+        Binary weighted focal loss for each class
         """
         weight_plus = torch.autograd.Variable(self.loss_weight_plus.repeat(1, target.size(0)).view(-1, self.loss_weight_plus.size(1)).cuda())
         weight_neg = torch.autograd.Variable(self.loss_weight_minus.repeat(1, target.size(0)).view(-1, self.loss_weight_minus.size(1)).cuda())
@@ -179,7 +179,7 @@ class ChestXrayDataSet(Dataset):
         nmask = (target < 0.5).data
         
         epsilon = 1e-15
-        loss[pmask] = (loss[pmask] + epsilon).log() * weight_plus[pmask]
-        loss[nmask] = (1-loss[nmask] + epsilon).log() * weight_plus[nmask]
+        loss[pmask] = torch.pow(1-loss[pmask], gamma) * (loss[pmask] + epsilon).log() * weight_plus[pmask]
+        loss[nmask] = torch.pow(loss[nmask], gamma) * (1-loss[nmask] + epsilon).log() * weight_plus[nmask]
         loss = -loss.sum()
         return loss

@@ -1,7 +1,7 @@
 """
 Trainer for training and testing the networks
 """
-
+from sklearn.metrics import roc_auc_score, confusion_matrix, roc_curve, auc, f1_score
 import os
 import numpy as np
 import datetime
@@ -16,7 +16,7 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from read_data import ChestXrayDataSet, ChestXrayDataSetTest
-from sklearn.metrics import roc_auc_score, confusion_matrix, roc_curve, auc, f1_score
+
 import seaborn as sn
 import pandas as pd
 from scipy import interp
@@ -54,7 +54,7 @@ class Trainer:
             self.load_model(checkpoint)
 
     def train(self, TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, NUM_EPOCHS=10, LR=0.001, BATCH_SIZE=64,
-                start_epoch=0, logging=True, save_path=None, freeze_feature_layers=True):
+                start_epoch=0, logging=True, save_path=None, freeze_feature_layers=True, gamma=2.0):
         """
         Train the CovidAID
         """
@@ -128,7 +128,7 @@ class Trainer:
                 preds = self.net(inputs).view(bs, n_crops, -1).mean(dim=1)
 
                 # loss = torch.sum(torch.abs(preds - target) ** 2)    
-                loss = train_dataset.loss(preds, target)  
+                loss = train_dataset.loss(preds, target, gamma)  
                 # exit()          
                 tot_loss += float(loss.data)
 
@@ -158,7 +158,7 @@ class Trainer:
 
                 preds = self.net(inputs).view(bs, n_crops, -1).mean(1)
                 # loss = torch.sum(torch.abs(preds - target) ** 2)
-                loss = val_dataset.loss(preds, target) 
+                loss = val_dataset.loss(preds, target, gamma) 
                 
                 val_loss += float(loss.data)
 
@@ -412,6 +412,7 @@ if __name__ == '__main__':
     parser.add_argument("--bs", type=int, default=8)
     parser.add_argument("--cm_path", type=str, default='plots/cm')
     parser.add_argument("--roc_path", type=str, default='plots/roc')
+    parser.add_argument("--gamma", type=float, default=2.0)
 
     # parser.add_argment("--torch_version", "--tv", choices=["0.3", "new"], default="0.3")
     args = parser.parse_args()
@@ -431,7 +432,7 @@ if __name__ == '__main__':
     elif args.mode == 'train':
         assert args.save is not None
         trainer.train(TRAIN_IMAGE_LIST, VAL_IMAGE_LIST, BATCH_SIZE=args.bs, NUM_EPOCHS=300, LR=args.lr,
-                        start_epoch=args.start, save_path=args.save, freeze_feature_layers=args.freeze)
+                        start_epoch=args.start, save_path=args.save, freeze_feature_layers=args.freeze, gamma=args.gamma)
     else:
         trainer.F1(TEST_DIR, 'models/samples.txt')
 

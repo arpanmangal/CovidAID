@@ -9,7 +9,9 @@ It is based on [CheXNet](https://stanfordmlgroup.github.io/projects/chexnet/) (a
 Please refer to [INSTALL.md](./INSTALL.md) for installation.
 
 ## Dataset
-`CovidAID` uses the [covid-chestxray-dataset](https://github.com/ieee8023/covid-chestxray-dataset) for COVID-19 X-Ray images and [chest-xray-pneumonia](https://www.kaggle.com/paultimothymooney/chest-xray-pneumonia) dataset for data on Pneumonia and Normal lung X-Ray images. 
+`CovidAID` uses the [covid-chestxray-dataset](https://github.com/ieee8023/covid-chestxray-dataset) and [BSTI-dataset](https://www.bsti.org.uk/training-and-education/covid-19-bsti-imaging-database/)for COVID-19 X-Ray images and [chest-xray-pneumonia](https://www.kaggle.com/paultimothymooney/chest-xray-pneumonia) dataset for data on Pneumonia and Normal lung X-Ray images. 
+
+It was observed that the crowdsourced [covid-chestxray-dataset](https://github.com/ieee8023/covid-chestxray-dataset) had mulitple X-rays of COVID-19 patients which had no visual indication of COVID-19 and appeared Normal. Our Radiologist cross-checked the dataset to remove some of these images. The list of these images can be found in data/covid19/removed_files.txt
 
 ### Data Distribution
 Chest X-Ray image distribution
