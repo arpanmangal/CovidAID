@@ -38,7 +38,7 @@ def visualize(model,img_dir,visualize_dir,CovidDataLoader):
     if generate_new or not os.path.isfile(maskspath):
         explainer.generate_masks(N=1000, s=8, p1=0.1, savepath=maskspath)
     else:
-        explainer.load_masks(maskspath)
+        explainer.load_masks(maskspath, p1=0.1)
     
     def explain_all(data_loader, explainer):
         # Get all predicted labels first

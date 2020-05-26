@@ -35,10 +35,11 @@ class RISE(nn.Module):
         self.N = N
         self.p1 = p1
 
-    def load_masks(self, filepath):
+    def load_masks(self, filepath, p1):
         self.masks = np.load(filepath)
         self.masks = torch.from_numpy(self.masks).float().cuda()
         self.N = self.masks.shape[0]
+        self.p1 = p1
 
     def forward(self, x):
         N = self.N
