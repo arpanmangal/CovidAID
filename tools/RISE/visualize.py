@@ -36,7 +36,7 @@ def visualize(model,img_dir,visualize_dir,CovidDataLoader):
     generate_new = True
 
     if generate_new or not os.path.isfile(maskspath):
-        explainer.generate_masks(N=1000, s=8, p1=0.1, savepath=maskspath)
+        explainer.generate_masks(N=10000, s=8, p1=0.1, savepath=maskspath)
     else:
         explainer.load_masks(maskspath)
     

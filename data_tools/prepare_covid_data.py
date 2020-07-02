@@ -15,6 +15,7 @@ np.random.seed(0)
 # Dataset path
 COVID_DATA_PATH='/home/cse/dual/cs5150296/scratch/COVID_Data/covid-chestxray-dataset'
 BSTI_DATA_PATH='/home/cse/dual/cs5150296/scratch/COVID_Data/BSTI'
+KGP_DATA_PATH='/home/cse/dual/cs5150296/scratch/COVID_Data/IITKGP-Action/images/'
 METADATA_CSV = os.path.join(COVID_DATA_PATH, 'metadata.csv')
 TRAIN_FILE = './data/covid19/train_list.txt'
 VAL_FILE = './data/covid19/val_list.txt'
@@ -22,10 +23,14 @@ TEST_FILE = './data/covid19/test_list.txt'
 BSTI_TRAIN_FILE = './data/covid19/bsti_train_list.txt'
 BSTI_VAL_FILE = './data/covid19/bsti_val_list.txt'
 BSTI_TEST_FILE = './data/covid19/bsti_test_list.txt'
+KGP_TRAIN_FILE = './data/covid19/kgp_train_list.txt'
+KGP_VAL_FILE = './data/covid19/kgp_val_list.txt'
+KGP_TEST_FILE = './data/covid19/kgp_test_list.txt'
 REMOVED_LIST = './data/covid19/removed_files.txt'
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--bsti", action='store_true', default=False)
+parser.add_argument("--kgp_action", action='store_true', default=False)
 args = parser.parse_args()
 
 # Load patient stats
@@ -118,3 +123,30 @@ if args.bsti :
     make_img_list(BSTI_TRAIN_FILE, bsti_train_list, BSTI_DATA_PATH)
     make_img_list(BSTI_VAL_FILE, bsti_val_list, BSTI_DATA_PATH)
     make_img_list(BSTI_TEST_FILE, bsti_test_list, BSTI_DATA_PATH)
+    
+#Include IIT-KGP Action Group Dataset
+if args.kgp_action :
+    # Construct the split lists
+    kgp_train_list = []
+    kgp_test_list = []
+    kgp_val_list = []
+    subdirs = os.listdir(KGP_DATA_PATH)
+    
+    for subdir in subdirs:
+        subpath = os.path.join(KGP_DATA_PATH,subdir)
+        kgp_images = [f for f in os.listdir(subpath) if os.path.isfile(os.path.join(subpath, f))]
+     
+        for imgfile in kgp_images:
+            rand_val = np.random.rand(1)
+            if rand_val < 0.1:
+                kgp_val_list.append(subdir+"/"+imgfile)
+            elif rand_val < 0.3:
+                kgp_test_list.append(subdir+"/"+imgfile)
+            else:
+                kgp_train_list.append(subdir+"/"+imgfile)
+
+    print("KGP Action train-test-val split: ",len(kgp_train_list), len(kgp_test_list), len(kgp_val_list))
+
+    make_img_list(KGP_TRAIN_FILE, kgp_train_list, KGP_DATA_PATH)
+    make_img_list(KGP_VAL_FILE, kgp_val_list, KGP_DATA_PATH)
+    make_img_list(KGP_TEST_FILE, kgp_test_list, KGP_DATA_PATH)
