@@ -1,4 +1,4 @@
-# CovidAID for Detection of COVID-19 from X-Ray Images
+# From X-RAY Images Detection Of COVID-19 By CovidAID
 
 We present `CovidAID` (Covid AI Detector), a PyTorch (python3) based implementation, to identify COVID-19 cases from X-Ray images. The model takes as input a chest X-Ray image and outputs the probability scores for 4 classes (`NORMAL`, `Bacterial Pneumonia`, `Viral Pneumonia` and `COVID-19`).
 
